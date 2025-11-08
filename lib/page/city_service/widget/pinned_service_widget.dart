@@ -7,6 +7,7 @@ import 'package:town_pass/page/city_service/widget/pinned_service_item_widget.da
 import 'package:town_pass/page/city_service/widget/pinned_service_widget_controller.dart';
 import 'package:town_pass/util/extension/list.dart';
 import 'package:town_pass/util/tp_colors.dart';
+import 'package:town_pass/util/tp_route.dart';
 import 'package:town_pass/util/tp_text.dart';
 
 class PinnedServiceWidget extends GetView<PinnedServiceWidgetController> {
@@ -50,8 +51,9 @@ class PinnedServiceWidget extends GetView<PinnedServiceWidgetController> {
                             service: itemId.item,
                             isEdit: isEditMode,
                             onTap: switch (isEditMode) {
-                              true => (() => controller.pinnedList.remove(itemId)),
-                              false => null,
+                              true => (() =>
+                                  controller.pinnedList.remove(itemId)),
+                              false => (() => _onServiceTap(itemId, itemId.item)),
                             },
                           );
                         }
@@ -60,7 +62,8 @@ class PinnedServiceWidget extends GetView<PinnedServiceWidgetController> {
                     ).toList()
                       ..addAllIf(
                         rowList.length < 4,
-                        List.filled(4 - rowList.length, const SizedBox.shrink()),
+                        List.filled(
+                            4 - rowList.length, const SizedBox.shrink()),
                       ),
                   );
                 },
@@ -77,7 +80,26 @@ class PinnedServiceWidget extends GetView<PinnedServiceWidgetController> {
   }
 
   bool get _appendAddButtonOrNot {
-    return !isEditMode && controller.pinnedList.length < 12 && (showAddInNewLine ? true : controller.pinnedList.length % 4 != 0);
+    return !isEditMode &&
+        controller.pinnedList.length < 12 &&
+        (showAddInNewLine ? true : controller.pinnedList.length % 4 != 0);
+  }
+
+  void _onServiceTap(MyServiceItemId itemId, MyServiceItem item) {
+    // 處理避難導航服務
+    if (itemId == MyServiceItemId.disasterShelter) {
+      Get.toNamed(TPRoute.disasterShelter);
+      return;
+    }
+
+    // 處理有 URL 的服務
+    if (item.destinationUrl.isNotEmpty) {
+      TPRoute.openUri(
+        uri: item.destinationUrl,
+        forceTitle: item.forceWebViewTitle,
+      );
+      return;
+    }
   }
 }
 

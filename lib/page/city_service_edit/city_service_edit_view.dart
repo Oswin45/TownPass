@@ -129,6 +129,10 @@ class CityServiceEditView extends GetView<CityServiceEditViewController> {
                                         }
                                     }
                                   } else {
+                                    if (itemId == MyServiceItemId.disasterShelter) {
+                                      Get.toNamed(TPRoute.disasterShelter);
+                                      return;
+                                    }
                                     if (itemId.item.destinationUrl.isNotEmpty) {
                                       await TPRoute.openUri(
                                         uri: itemId.item.destinationUrl,
