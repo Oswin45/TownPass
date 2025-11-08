@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:town_pass/page/disaster_shelter/model/disaster_event.dart';
 import 'package:town_pass/page/disaster_shelter/widget/event_card/event_item_widget.dart';
 import 'package:town_pass/page/disaster_shelter/widget/event_detail_sheet.dart';
+import 'package:town_pass/service/event_service.dart';
 import 'package:town_pass/util/tp_app_bar.dart';
 import 'package:town_pass/util/tp_colors.dart';
 import 'package:town_pass/util/tp_text.dart';
@@ -15,6 +16,8 @@ class EventListView extends StatefulWidget {
 }
 
 class _EventListViewState extends State<EventListView> {
+  final EventService _eventService = EventService();
+  
   List<DisasterEvent> allEvents = [];
   List<DisasterEvent> filteredEvents = [];
   bool isLoading = true;
@@ -52,13 +55,26 @@ class _EventListViewState extends State<EventListView> {
       isLoading = true;
     });
 
-    await Future.delayed(const Duration(seconds: 1));
-
-    setState(() {
-      allEvents = DisasterEvent.getMockData();
-      filteredEvents = allEvents;
-      isLoading = false;
-    });
+    try {
+      // 從本地端讀取事件資料
+      final events = await _eventService.loadEvents();
+      
+      setState(() {
+        allEvents = events;
+        filteredEvents = events;
+        isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        isLoading = false;
+      });
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('載入事件資料失敗: $e')),
+        );
+      }
+    }
   }
 
   void _filterEvents() {
@@ -178,7 +194,7 @@ class _EventListViewState extends State<EventListView> {
                   children: allTags.map((tag) {
                     final isSelected = selectedTags.contains(tag);
                     return FilterChip(
-                      showCheckmark: false, 
+                      showCheckmark: false,
                       label: TPText(
                         tag,
                         style: TPTextStyles.bodyRegular,

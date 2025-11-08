@@ -7,11 +7,12 @@ import 'dart:ui' as ui;
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:dio/dio.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:uuid/uuid.dart';
 import '../../../util/tp_colors.dart';
 import 'package:town_pass/util/tp_app_bar.dart';
-// (tp_text not used here)
+import 'package:town_pass/service/event_service.dart';
+import 'package:town_pass/page/disaster_shelter/model/disaster_event.dart';
 
 class UploadEventView extends StatefulWidget {
   const UploadEventView({Key? key}) : super(key: key);
@@ -29,6 +30,8 @@ class _UploadEventViewState extends State<UploadEventView> {
   bool _showDescError = false;
   bool _showImageError = false;
   final Set<String> selectedTags = <String>{};
+  final EventService _eventService = EventService();
+  final Uuid _uuid = const Uuid();
 
   final List<String> tagOptions = [
     '道路阻塞',
@@ -125,9 +128,8 @@ class _UploadEventViewState extends State<UploadEventView> {
       final Position position = await Geolocator.getCurrentPosition(
           desiredAccuracy: LocationAccuracy.best);
 
-      // 3) 壓縮（目標高度 720p，保持長寬比）並轉換圖片為 base64
+      // 3) 壓縮並轉換圖片為 base64
       if (_image == null) {
-        // 這裡理論上不會發生，因為 _validateForm 已檢查
         throw Exception('No image selected');
       }
       final originalBytes = await _image!.readAsBytes();
@@ -154,7 +156,7 @@ class _UploadEventViewState extends State<UploadEventView> {
         targetW = origW;
       }
 
-      // 嘗試壓縮檔案（若壓縮失敗，退回使用原始 bytes）
+      // 嘗試壓縮檔案
       Uint8List? compressedBytes;
       try {
         compressedBytes = await FlutterImageCompress.compressWithFile(
@@ -169,68 +171,48 @@ class _UploadEventViewState extends State<UploadEventView> {
       }
 
       final bytesToUse = compressedBytes ?? originalBytes;
-      final base64Image = base64Encode(bytesToUse);
+      final base64Image = 'data:image/jpeg;base64,${base64Encode(bytesToUse)}';
 
-      // 4) 組 payload
-      final payload = {
-        'img': base64Image,
-        'tags': selectedTags.toList(),
-        'description': _descController.text,
-        'title': _titleController.text,
-        'lnt': position.longitude,
-        'lat': position.latitude,
-      };
-
-      // 5) 發送到後端 API
-      // Debug: 在送出前把要送出的 body 印到 terminal（只顯示 img preview 與長度以免過大）
-      final int previewLen = base64Image.length > 200 ? 200 : base64Image.length;
-      final String imgPreview = base64Image.substring(0, previewLen) +
-          (base64Image.length > 200 ? '...' : '');
-      final debugPayload = {
-        ...payload,
-        'img': 'BASE64(len=${base64Image.length}, preview=${imgPreview})'
-      };
-      debugPrint('Uploading payload: ${jsonEncode(debugPayload)}');
-
-      final dioClient = Dio();
-      final response = await dioClient.post(
-        'https://shelter.sausagee.party/api/DisasterEvent',
-        data: payload,
-        options: Options(
-          headers: {'Content-Type': 'application/json'},
-          responseType: ResponseType.json,
-        ),
+      // 4) 創建新事件
+      final newEvent = DisasterEvent(
+        id: _uuid.v4(),
+        img: base64Image,
+        tags: selectedTags.toList(),
+        title: _titleController.text,
+        description: _descController.text,
+        lat: position.latitude.toString(),
+        lng: position.longitude.toString(),
       );
 
-      // Debug: 印出回應 status 與 body
-      debugPrint('DisasterEvent response status: ${response.statusCode}');
-      debugPrint('DisasterEvent response data: ${response.data}');
+      // 5) 儲存到本地端 JSON
+      final success = await _eventService.addEvent(newEvent);
 
-      // 6) 處理回應
-      final respData = response.data;
-      final success = respData != null && (respData['success'] == true || respData['success'] == 'true');
       if (success) {
-        debugPrint('DisasterEvent: success = true, data=${respData}');
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('上傳成功'),
-            backgroundColor: TPColors.primary500,
-            behavior: SnackBarBehavior.floating,
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            margin: const EdgeInsets.all(10),
-          ),
-        );
-        _deleteData();
+        debugPrint('Event saved successfully: ${newEvent.id}');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('上傳成功'),
+              backgroundColor: TPColors.primary500,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
+              margin: const EdgeInsets.all(10),
+            ),
+          );
+          _deleteData();
+          // 返回上一頁
+          Navigator.of(context).pop(true);
+        }
       } else {
-        final message = (respData != null && respData['message'] != null)
-            ? respData['message'].toString()
-            : '上傳失敗，請重試';
-        // Debug: 印出 server failure 訊息
-        debugPrint('DisasterEvent: success = false, status=${response.statusCode}, message=$message, data=${respData}');
+        throw Exception('Failed to save event');
+      }
+    } catch (e) {
+      debugPrint('Upload exception: ${e.toString()}');
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(message),
+            content: Text('上傳失敗：${e.toString()}'),
             backgroundColor: TPColors.red500,
             behavior: SnackBarBehavior.floating,
             shape:
@@ -239,41 +221,10 @@ class _UploadEventViewState extends State<UploadEventView> {
           ),
         );
       }
-    } on DioError catch (dioErr) {
-      // Debug: 印出 Dio 錯誤詳細
-      debugPrint('DioError: ${dioErr.toString()}');
-      debugPrint('DioError response: status=${dioErr.response?.statusCode}, data=${dioErr.response?.data}');
-      String msg = '上傳失敗，請重試';
-      if (dioErr.response != null && dioErr.response?.data != null) {
-        final data = dioErr.response?.data;
-        if (data is Map && data['message'] != null) msg = data['message'].toString();
-      } else if (dioErr.message != null && dioErr.message!.isNotEmpty) {
-        msg = dioErr.message!;
-      }
-      debugPrint('DioError user message: $msg');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(msg),
-          backgroundColor: TPColors.red500,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          margin: const EdgeInsets.all(10),
-        ),
-      );
-    } catch (e) {
-      // Debug: 印出非 Dio 的例外
-      debugPrint('Upload exception: ${e.toString()}');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('上傳失敗：${e.toString()}'),
-          backgroundColor: TPColors.red500,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          margin: const EdgeInsets.all(10),
-        ),
-      );
     } finally {
-      setState(() => _isUploading = false);
+      if (mounted) {
+        setState(() => _isUploading = false);
+      }
     }
   }
 
@@ -359,7 +310,7 @@ class _UploadEventViewState extends State<UploadEventView> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 📸 上傳圖片 - 優化設計
+            // 📸 上傳圖片
             Center(
               child: GestureDetector(
                 onTap: () {
@@ -495,7 +446,10 @@ class _UploadEventViewState extends State<UploadEventView> {
                           children: [
                             ClipRRect(
                               borderRadius: BorderRadius.circular(14),
-                              child: Image.file(_image!, fit: BoxFit.cover),
+                              child: Image.file(_image!, 
+                                  fit: BoxFit.cover,
+                                  width: double.infinity,
+                                  height: double.infinity),
                             ),
                             Positioned(
                               top: 12,
