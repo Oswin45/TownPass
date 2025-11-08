@@ -1,0 +1,742 @@
+[
+  {
+    "id": "1",
+    "name": "忠孝國中",
+    "district": "大同區",
+    "address": "臺北市大同區西寧北路32號",
+    "latitude": 25.051881,
+    "longitude": 121.50837,
+    "telephone": "(02)87335615",
+    "status": "未開設"
+  },
+  {
+    "id": "2",
+    "name": "新興國中",
+    "district": "中山區",
+    "address": "臺北市中山區林森北路511號",
+    "latitude": 25.062268,
+    "longitude": 121.52688,
+    "telephone": "(02)87335615",
+    "status": "未開設"
+  },
+  {
+    "id": "3",
+    "name": "士林國小",
+    "district": "士林區",
+    "address": "臺北市士林區大東路165號",
+    "latitude": 25.092115,
+    "longitude": 121.52419,
+    "telephone": "(02)87335615",
+    "status": "未開設"
+  },
+  {
+    "id": "4",
+    "name": "社子國小",
+    "district": "士林區",
+    "address": "臺北市士林區延平北路六段308號",
+    "latitude": 25.089984,
+    "longitude": 121.50366,
+    "telephone": "(02)87335615",
+    "status": "未開設"
+  },
+  {
+    "id": "5",
+    "name": "中山國小",
+    "district": "中山區",
+    "address": "臺北市中山區民權東路一段69號",
+    "latitude": 25.063030,
+    "longitude": 121.52707,
+    "telephone": "(02)87335615",
+    "status": "未開設"
+  },
+  {
+    "id": "6",
+    "name": "五常國中",
+    "district": "中山區",
+    "address": "臺北市中山區復興北路430巷1號",
+    "latitude": 25.064204,
+    "longitude": 121.54300,
+    "telephone": "(02)87335615",
+    "status": "未開設"
+  },
+  {
+    "id": "7",
+    "name": "新生公園(1)",
+    "district": "中山區",
+    "address": "臺北市中山區新庄里新生北路三段105號",
+    "latitude": 25.070722,
+    "longitude": 121.52930,
+    "telephone": "(02)87335615",
+    "status": "未開設"
+  },
+  {
+    "id": "8",
+    "name": "新生公園(2)",
+    "district": "中山區",
+    "address": "臺北市中山區新庄里新生北路三段105號",
+    "latitude": 25.069521,
+    "longitude": 121.53292,
+    "telephone": "(02)87335615",
+    "status": "未開設"
+  },
+  {
+    "id": "9",
+    "name": "榮星花園公園(1)",
+    "district": "中山區",
+    "address": "臺北市中山區行仁里民權東路三段1號",
+    "latitude": 25.063048,
+    "longitude": 121.53741,
+    "telephone": "(02)87335615",
+    "status": "未開設"
+  },
+  {
+    "id": "10",
+    "name": "榮星花園公園(2)",
+    "district": "中山區",
+    "address": "臺北市中山區行仁里民權東路三段1號",
+    "latitude": 25.062656,
+    "longitude": 121.53856,
+    "telephone": "(02)87335615",
+    "status": "未開設"
+  },
+  {
+    "id": "11",
+    "name": "士林官邸公園",
+    "district": "士林區",
+    "address": "臺北市士林區福林里福林路60號",
+    "latitude": 25.091375,
+    "longitude": 121.53126,
+    "telephone": "(02)87335615",
+    "status": "未開設"
+  },
+  {
+    "id": "12",
+    "name": "立農公園",
+    "district": "北投區",
+    "address": "臺北市北投區承德路七段378號",
+    "latitude": 25.118212,
+    "longitude": 121.50358,
+    "telephone": "(02)87335615",
+    "status": "未開設"
+  },
+  {
+    "id": "13",
+    "name": "建成公園",
+    "district": "大同區",
+    "address": "臺北市大同區光能里承德路二段35號旁",
+    "latitude": 25.054748,
+    "longitude": 121.51871,
+    "telephone": "(02)87335615",
+    "status": "未開設"
+  },
+  {
+    "id": "14",
+    "name": "迪化公園",
+    "district": "大同區",
+    "address": "臺北市大同區老師里延平北路四段189號對面",
+    "latitude": 25.075078,
+    "longitude": 121.51139,
+    "telephone": "(02)87335615",
+    "status": "未開設"
+  },
+  {
+    "id": "15",
+    "name": "東和公園",
+    "district": "士林區",
+    "address": "臺北市士林區天母東路69巷與中山北路七段14巷口",
+    "latitude": 25.120574,
+    "longitude": 121.53348,
+    "telephone": "(02)87335615",
+    "status": "未開設"
+  },
+  {
+    "id": "16",
+    "name": "北投國小",
+    "district": "北投區",
+    "address": "臺北市北投區中央北路一段73號",
+    "latitude": 25.134173,
+    "longitude": 121.49900,
+    "telephone": "(02)87335615",
+    "status": "未開設"
+  },
+  {
+    "id": "17",
+    "name": "桃源國中",
+    "district": "北投區",
+    "address": "臺北市北投區中央北路四段48號",
+    "latitude": 25.134509,
+    "longitude": 121.47696,
+    "telephone": "(02)87335615",
+    "status": "未開設"
+  },
+  {
+    "id": "18",
+    "name": "逸仙國小",
+    "district": "北投區",
+    "address": "臺北市北投區新民路2號",
+    "latitude": 25.138039,
+    "longitude": 121.50536,
+    "telephone": "(02)87335615",
+    "status": "未開設"
+  },
+  {
+    "id": "19",
+    "name": "新民國中",
+    "district": "北投區",
+    "address": "臺北市北投區新民路10號",
+    "latitude": 25.139008,
+    "longitude": 121.50668,
+    "telephone": "(02)87335615",
+    "status": "未開設"
+  },
+  {
+    "id": "20",
+    "name": "福林國小",
+    "district": "士林區",
+    "address": "臺北市士林區福志路75號",
+    "latitude": 25.098619,
+    "longitude": 121.53051,
+    "telephone": "(02)87335615",
+    "status": "未開設"
+  },
+  {
+    "id": "21",
+    "name": "至善國中",
+    "district": "士林區",
+    "address": "臺北市士林區至善路二段360號",
+    "latitude": 25.104312,
+    "longitude": 121.55677,
+    "telephone": "(02)87335615",
+    "status": "未開設"
+  },
+  {
+    "id": "22",
+    "name": "明倫高中",
+    "district": "大同區",
+    "address": "台北市大同區保安里承德路三段336號",
+    "latitude": 25.076618,
+    "longitude": 121.51985,
+    "telephone": "(02)87335615",
+    "status": "未開設"
+  },
+  {
+    "id": "23",
+    "name": "龍山國中",
+    "district": "萬華區",
+    "address": "臺北市萬華區南寧路46號",
+    "latitude": 25.035730,
+    "longitude": 121.50601,
+    "telephone": "(02)87335615",
+    "status": "未開設"
+  },
+  {
+    "id": "24",
+    "name": "雙園國小",
+    "district": "萬華區",
+    "address": "臺北市萬華區莒光路315號",
+    "latitude": 25.029787,
+    "longitude": 121.49829,
+    "telephone": "(02)87335615",
+    "status": "未開設"
+  },
+  {
+    "id": "25",
+    "name": "北市大附小",
+    "district": "中正區",
+    "address": "臺北市中正區公園路29號",
+    "latitude": 25.036654,
+    "longitude": 121.51663,
+    "telephone": "(02)87335615",
+    "status": "未開設"
+  },
+  {
+    "id": "26",
+    "name": "忠義國小",
+    "district": "中正區",
+    "address": "臺北市中正區中華路二段307巷17號",
+    "latitude": 25.029845,
+    "longitude": 121.50617,
+    "telephone": "(02)87335615",
+    "status": "未開設"
+  },
+  {
+    "id": "27",
+    "name": "螢橋國中",
+    "district": "中正區",
+    "address": "臺北市中正區汀州路三段4號",
+    "latitude": 25.018423,
+    "longitude": 121.52482,
+    "telephone": "(02)87335615",
+    "status": "未開設"
+  },
+  {
+    "id": "28",
+    "name": "華江高中",
+    "district": "萬華區",
+    "address": "台北市萬華區西藏路213號",
+    "latitude": 25.028672,
+    "longitude": 121.49812,
+    "telephone": "(02)87335615",
+    "status": "未開設"
+  },
+  {
+    "id": "29",
+    "name": "二二八和平公園(1)",
+    "district": "中正區",
+    "address": "臺北市中正區黎明里凱達格蘭大道3號",
+    "latitude": 25.040242,
+    "longitude": 121.51417,
+    "telephone": "(02)87335615",
+    "status": "未開設"
+  },
+  {
+    "id": "30",
+    "name": "二二八和平公園(2)",
+    "district": "中正區",
+    "address": "臺北市中正區黎明里凱達格蘭大道3號",
+    "latitude": 25.043024,
+    "longitude": 121.51418,
+    "telephone": "(02)87335615",
+    "status": "未開設"
+  },
+  {
+    "id": "31",
+    "name": "青年公園(1)",
+    "district": "萬華區",
+    "address": "臺北市萬華區騰雲里水源路199號",
+    "latitude": 25.023369,
+    "longitude": 121.50301,
+    "telephone": "(02)87335615",
+    "status": "未開設"
+  },
+  {
+    "id": "32",
+    "name": "青年公園(2)",
+    "district": "萬華區",
+    "address": "臺北市萬華區騰雲里水源路199號",
+    "latitude": 25.025220,
+    "longitude": 121.50446,
+    "telephone": "(02)87335615",
+    "status": "未開設"
+  },
+  {
+    "id": "33",
+    "name": "青年公園(3)",
+    "district": "萬華區",
+    "address": "臺北市萬華區騰雲里水源路199號",
+    "latitude": 25.025583,
+    "longitude": 121.50599,
+    "telephone": "(02)87335615",
+    "status": "未開設"
+  },
+  {
+    "id": "34",
+    "name": "萬有公園2號",
+    "district": "文山區",
+    "address": "臺北市文山區興隆路一段184巷與景明街29巷交叉口",
+    "latitude": 25.000448,
+    "longitude": 121.54208,
+    "telephone": "(02)87335615",
+    "status": "未開設"
+  },
+  {
+    "id": "35",
+    "name": "景華公園",
+    "district": "文山區",
+    "address": "臺北市文山區景華里景興路與景華街交义口",
+    "latitude": 24.995948,
+    "longitude": 121.54322,
+    "telephone": "(02)87335615",
+    "status": "未開設"
+  },
+  {
+    "id": "36",
+    "name": "文山公園",
+    "district": "文山區",
+    "address": "臺北市文山區木新里木柵路三段220號旁",
+    "latitude": 24.989287,
+    "longitude": 121.57049,
+    "telephone": "(02)87335615",
+    "status": "未開設"
+  },
+  {
+    "id": "37",
+    "name": "民族國中",
+    "district": "大安區",
+    "address": "臺北市大安區羅斯福路四段113巷13號",
+    "latitude": 25.010551,
+    "longitude": 121.53823,
+    "telephone": "(02)87335615",
+    "status": "未開設"
+  },
+  {
+    "id": "38",
+    "name": "景興國小",
+    "district": "文山區",
+    "address": "臺北市文山區景華街150巷21號",
+    "latitude": 24.996275,
+    "longitude": 121.54825,
+    "telephone": "(02)87335615",
+    "status": "未開設"
+  },
+  {
+    "id": "39",
+    "name": "大安國小",
+    "district": "大安區",
+    "address": "臺北市大安區臥龍街129號",
+    "latitude": 25.019039,
+    "longitude": 121.55041,
+    "telephone": "(02)87335615",
+    "status": "未開設"
+  },
+  {
+    "id": "40",
+    "name": "大湖國小",
+    "district": "內湖區",
+    "address": "臺北市內湖區大湖山莊街170號",
+    "latitude": 25.087458,
+    "longitude": 121.60119,
+    "telephone": "(02)87335615",
+    "status": "未開設"
+  },
+  {
+    "id": "41",
+    "name": "康寧國小",
+    "district": "內湖區",
+    "address": "臺北市內湖區星雲街121號",
+    "latitude": 25.079785,
+    "longitude": 121.59436,
+    "telephone": "(02)87335615",
+    "status": "未開設"
+  },
+  {
+    "id": "42",
+    "name": "碧湖國小",
+    "district": "內湖區",
+    "address": "臺北市內湖區金龍路100號",
+    "latitude": 25.085292,
+    "longitude": 121.59077,
+    "telephone": "(02)87335615",
+    "status": "未開設"
+  },
+  {
+    "id": "43",
+    "name": "麗山國小",
+    "district": "內湖區",
+    "address": "臺北市內湖區港華街100號",
+    "latitude": 25.083805,
+    "longitude": 121.57200,
+    "telephone": "(02)87335615",
+    "status": "未開設"
+  },
+  {
+    "id": "44",
+    "name": "成德國小",
+    "district": "南港區",
+    "address": "臺北市南港區東新街65號",
+    "latitude": 25.047849,
+    "longitude": 121.58742,
+    "telephone": "(02)87335615",
+    "status": "未開設"
+  },
+  {
+    "id": "45",
+    "name": "成德國中",
+    "district": "南港區",
+    "address": "臺北市南港區東新街108巷23號",
+    "latitude": 25.045827,
+    "longitude": 121.58807,
+    "telephone": "(02)87335615",
+    "status": "未開設"
+  },
+  {
+    "id": "46",
+    "name": "中崙高中",
+    "district": "松山區",
+    "address": "臺北市松山區八德路四段101號",
+    "latitude": 25.050206,
+    "longitude": 121.56238,
+    "telephone": "(02)87335615",
+    "status": "未開設"
+  },
+  {
+    "id": "47",
+    "name": "幸安國小",
+    "district": "大安區",
+    "address": "臺北市大安區仁愛路3段22號",
+    "latitude": 25.036319,
+    "longitude": 121.53555,
+    "telephone": "(02)87335615",
+    "status": "未開設"
+  },
+  {
+    "id": "48",
+    "name": "石潭136地號",
+    "district": "內湖區",
+    "address": "臺北市內湖區金湖路363巷8號",
+    "latitude": 25.072774,
+    "longitude": 121.59965,
+    "telephone": "(02)87335615",
+    "status": "未開設"
+  },
+  {
+    "id": "49",
+    "name": "敦化國中",
+    "district": "松山區",
+    "address": "臺北市松山區南京東路三段300號",
+    "latitude": 25.051530,
+    "longitude": 121.54635,
+    "telephone": "(02)87335615",
+    "status": "未開設"
+  },
+  {
+    "id": "50",
+    "name": "萬和公園1號",
+    "district": "文山區",
+    "address": "臺北市文山區溪洲街137巷",
+    "latitude": 25.000250,
+    "longitude": 121.53618,
+    "telephone": "(02)87335615",
+    "status": "未開設"
+  },
+  {
+    "id": "51",
+    "name": "龍門國中",
+    "district": "大安區",
+    "address": "臺北市大安區建國南路二段269號",
+    "latitude": 25.024717,
+    "longitude": 121.53921,
+    "telephone": "(02)87335615",
+    "status": "未開設"
+  },
+  {
+    "id": "52",
+    "name": "大安森林公園(1)",
+    "district": "大安區",
+    "address": "臺北市大安區龍門里新生南路以東、信義路三段以南",
+    "latitude": 25.029403,
+    "longitude": 121.53535,
+    "telephone": "(02)87335615",
+    "status": "未開設"
+  },
+  {
+    "id": "53",
+    "name": "玉泉公園(1)",
+    "district": "大同區",
+    "address": "臺北市大同區玉泉里西寜北路28號",
+    "latitude": 25.049138,
+    "longitude": 121.50760,
+    "telephone": "(02)87335615",
+    "status": "未開設"
+  },
+  {
+    "id": "54",
+    "name": "玉泉公園(2)",
+    "district": "大同區",
+    "address": "臺北市大同區玉泉里西寜北路28號",
+    "latitude": 25.049209,
+    "longitude": 121.50663,
+    "telephone": "(02)87335615",
+    "status": "未開設"
+  },
+  {
+    "id": "55",
+    "name": "民權公園",
+    "district": "松山區",
+    "address": "臺北市松山區東榮里民權東路四段、民權國小附近",
+    "latitude": 25.061602,
+    "longitude": 121.55722,
+    "telephone": "(02)87335615",
+    "status": "未開設"
+  },
+  {
+    "id": "56",
+    "name": "大湖公園",
+    "district": "內湖區",
+    "address": "臺北市內湖區秀湖里成功路五段31號旁",
+    "latitude": 25.082672,
+    "longitude": 121.60490,
+    "telephone": "(02)87335615",
+    "status": "未開設"
+  },
+  {
+    "id": "57",
+    "name": "南港公園",
+    "district": "南港區",
+    "address": "臺北市南港區成福里東新街170-1號",
+    "latitude": 25.045395,
+    "longitude": 121.59187,
+    "telephone": "(02)87335615",
+    "status": "未開設"
+  },
+  {
+    "id": "58",
+    "name": "松德公園",
+    "district": "信義區",
+    "address": "臺北市信義區安康里松德路180巷興雅國中西側",
+    "latitude": 25.035544,
+    "longitude": 121.57294,
+    "telephone": "(02)87335615",
+    "status": "未開設"
+  },
+  {
+    "id": "59",
+    "name": "內湖運動公園",
+    "district": "內湖區",
+    "address": "臺北市內湖區舊宗路二段2號",
+    "latitude": 25.066397,
+    "longitude": 121.57457,
+    "telephone": "(02)87335615",
+    "status": "未開設"
+  },
+  {
+    "id": "60",
+    "name": "客家文化主題公園",
+    "district": "中正區",
+    "address": "台北市中正區汀州路三段2號",
+    "latitude": 25.019177,
+    "longitude": 121.52435,
+    "telephone": "(02)87335615",
+    "status": "未開設"
+  },
+  {
+    "id": "61",
+    "name": "三民國小",
+    "district": "松山區",
+    "address": "臺北市松山區民權東路五段1號",
+    "latitude": 25.063892,
+    "longitude": 121.56449,
+    "telephone": "(02)87335615",
+    "status": "未開設"
+  },
+  {
+    "id": "62",
+    "name": "民生國小",
+    "district": "松山區",
+    "address": "臺北市松山區敦化北路199巷18號",
+    "latitude": 25.056536,
+    "longitude": 121.55152,
+    "telephone": "(02)87335615",
+    "status": "未開設"
+  },
+  {
+    "id": "63",
+    "name": "育成高中",
+    "district": "南港區",
+    "address": "臺北市南港區重陽路366號",
+    "latitude": 25.057902,
+    "longitude": 121.60984,
+    "telephone": "(02)87335615",
+    "status": "未開設"
+  },
+  {
+    "id": "64",
+    "name": "南港國小",
+    "district": "南港區",
+    "address": "臺北市南港區惠民街67號",
+    "latitude": 25.056584,
+    "longitude": 121.61037,
+    "telephone": "(02)87335615",
+    "status": "未開設"
+  },
+  {
+    "id": "65",
+    "name": "南港高中",
+    "district": "南港區",
+    "address": "臺北市南港區向陽路21號",
+    "latitude": 25.052943,
+    "longitude": 121.59284,
+    "telephone": "(02)87335615",
+    "status": "未開設"
+  },
+  {
+    "id": "66",
+    "name": "民生國中",
+    "district": "松山區",
+    "address": "臺北市松山區新東里新東街30巷1號",
+    "latitude": 25.059748,
+    "longitude": 121.56631,
+    "telephone": "(02)87335615",
+    "status": "未開設"
+  },
+  {
+    "id": "67",
+    "name": "海光公園",
+    "district": "士林區",
+    "address": "環河北路三段及葫蘆街交叉",
+    "latitude": 25.082380,
+    "longitude": 121.50763,
+    "telephone": "(02)87335615",
+    "status": "未開設"
+  },
+  {
+    "id": "68",
+    "name": "信義國中",
+    "district": "信義區",
+    "address": "臺北市信義區松仁路158巷1號",
+    "latitude": 25.030312,
+    "longitude": 121.56803,
+    "telephone": "(02)87335615",
+    "status": "未開設"
+  },
+  {
+    "id": "69",
+    "name": "松基公園",
+    "district": "松山區",
+    "address": "台北市松山區興安街174巷3弄",
+    "latitude": 25.055501,
+    "longitude": 121.54539,
+    "telephone": "(02)87335615",
+    "status": "未開設"
+  },
+  {
+    "id": "70",
+    "name": "玉成國小",
+    "district": "南港區",
+    "address": "臺北市南港區向陽路31號",
+    "latitude": 25.054124,
+    "longitude": 121.59270,
+    "telephone": "(02)87335615",
+    "status": "未開設"
+  },
+  {
+    "id": "71",
+    "name": "大安森林公園(2)",
+    "district": "大安區",
+    "address": "臺北市大安區龍門里新生南路以東、信義路三段以南",
+    "latitude": 25.032673,
+    "longitude": 121.53488,
+    "telephone": "(02)87335615",
+    "status": "未開設"
+  },
+  {
+    "id": "72",
+    "name": "蘭雅國中",
+    "district": "士林區",
+    "address": "臺北市士林區忠誠路二段51號",
+    "latitude": 25.109863,
+    "longitude": 121.53084,
+    "telephone": "(02)87335615",
+    "status": "未開設"
+  },
+  {
+    "id": "73",
+    "name": "景勤2號公園",
+    "district": "信義區",
+    "address": "臺北市信義區信安街67巷旁",
+    "latitude": 25.026188,
+    "longitude": 121.55823,
+    "telephone": "(02)87335615",
+    "status": "未開設"
+  },
+  {
+    "id": "74",
+    "name": "青年公園(4)",
+    "district": "萬華區",
+    "address": "臺北市萬華區騰雲里水源路199號",
+    "latitude": 25.020753,
+    "longitude": 121.50478,
+    "telephone": "(02)87335615",
+    "status": "未開設"
+  }
+]
