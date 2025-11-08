@@ -16,6 +16,9 @@ namespace Backend
             builder.Services.AddHttpClient<AirRaidShelterService>();
             builder.Services.AddHttpClient<NaturalDisasterShelterService>();
             builder.Services.AddScoped<UnifiedShelterService>();
+            
+            // Register Google Maps Service
+            builder.Services.AddHttpClient<GoogleMapsService>();
 
             var app = builder.Build();
 
