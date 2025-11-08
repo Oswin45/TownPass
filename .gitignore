@@ -520,3 +520,5 @@ FodyWeavers.xsd
 *.msp
 /Backend/appsettings.Development.json
 /Backend/shelters.db
+/Backend/shelters.db-shm
+/Backend/shelters.db-wal
