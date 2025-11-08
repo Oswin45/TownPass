@@ -15,6 +15,7 @@ namespace Backend.Data
 
         public DbSet<Shelter> Shelters { get; set; } = null!;
         public DbSet<CacheMetadata> CacheMetadata { get; set; } = null!;
+        public DbSet<DisasterEvent> DisasterEvents { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -42,6 +43,26 @@ namespace Backend.Data
                 entity.HasKey(e => e.Id);
                 entity.Property(e => e.CacheKey).IsRequired().HasMaxLength(100);
                 entity.HasIndex(e => e.CacheKey).IsUnique();
+            });
+            
+            // 設定 DisasterEvent 表
+            modelBuilder.Entity<DisasterEvent>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Id).HasMaxLength(50);
+                entity.Property(e => e.Title).IsRequired().HasMaxLength(200);
+                entity.Property(e => e.Description).IsRequired();
+                entity.Property(e => e.TagsString).HasMaxLength(500);
+                entity.Property(e => e.Img).IsRequired();
+                entity.Property(e => e.CreatedAt).IsRequired();
+                entity.Property(e => e.UpdatedAt).IsRequired();
+                
+                // Ignore the computed property
+                entity.Ignore(e => e.Tags);
+                
+                // 建立索引以提高查詢效能
+                entity.HasIndex(e => e.CreatedAt);
+                entity.HasIndex(e => new { e.Lat, e.Lnt });
             });
         }
     }
