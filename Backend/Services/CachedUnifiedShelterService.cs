@@ -54,10 +54,10 @@ namespace Backend.Services
             {
                 _logger.LogInformation("從資料庫快取獲取避難所資料");
                 var shelters = await _repository.GetAllSheltersAsync();
-                
+                shelters.ForEach(s => s.CurrentOccupancy = Random.Shared.Next(0, s.Capacity));
                 // 存入記憶體快取
                 _memoryCache.Set(MEMORY_CACHE_KEY, shelters, _memoryCacheDuration);
-                
+
                 return shelters;
             }
 
@@ -159,7 +159,7 @@ namespace Backend.Services
             var shelters = await GetAllSheltersAsync();
 
             var naturalDisasterShelters = shelters.Where(s => s.Type != "防空避難所").ToList();
-            var airRaidShelters = shelters.Where(s => s.Type == "防空避難所" || 
+            var airRaidShelters = shelters.Where(s => s.Type == "防空避難所" ||
                                                       s.SupportedDisasters.HasFlag(DisasterTypes.AirRaid)).ToList();
 
             return new UnifiedShelterStatistics
