@@ -62,7 +62,6 @@ class _DisasterShelterViewState extends State<DisasterShelterView> {
         infoWindow: InfoWindow(title: 'Taipei 101'),
       ),
     );
-    // Add a current location marker at the requested coordinates 台大體育館
   // load shelter list from bundled JSON
   _loadShelters();
 
@@ -456,6 +455,26 @@ class _DisasterShelterViewState extends State<DisasterShelterView> {
     );
   }
 
+  // Show an informative dialog when a disaster-only feature is tapped while
+  // not in disaster mode.
+  void _showNotDisasterDialog() {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const TPText('功能暫停'),
+          content: const TPText('目前不是災難時刻，該功能暫時無法使用。'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const TPText('知道了', style: TPTextStyles.bodySemiBold, color: TPColors.primary500),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Future<void> _openMapsDirectionsTo(LatLng destination) async {
     if (_currentLocation == null) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('無法取得目前位置')));
@@ -528,9 +547,9 @@ class _DisasterShelterViewState extends State<DisasterShelterView> {
 
     // capacity
     if (_capacityFilter != null) {
-      if (_capacityFilter == 1) chips.add(_smallChip('小型 (<100)'));
-      if (_capacityFilter == 2) chips.add(_smallChip('中型 (100-1000)'));
-      if (_capacityFilter == 3) chips.add(_smallChip('大型 (>1000)'));
+      if (_capacityFilter == 1) chips.add(_smallChip('小型 (可容納人數 <100)'));
+      if (_capacityFilter == 2) chips.add(_smallChip('中型 (可容納人數 100-1000)'));
+      if (_capacityFilter == 3) chips.add(_smallChip('大型 (可容納人數>1000)'));
     }
 
     if (chips.isEmpty)
@@ -858,28 +877,31 @@ class _DisasterShelterViewState extends State<DisasterShelterView> {
                     right: 12,
                     child: Column(
                       children: [
-                        // camera
-                        GestureDetector(
-                          onTap: () => Get.to(() => const UploadEventView()),
-                          child: Container(
-                            width: 52,
-                            height: 52,
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                    color: Colors.black.withOpacity(0.12),
-                                    blurRadius: 8,
-                                    offset: const Offset(0, 4))
-                              ],
+                        // camera (disabled when not in disaster mode)
+                        Obx(() {
+                          final enabled = _notificationService.isDisasterMode.value;
+                          return GestureDetector(
+                            onTap: enabled ? () => Get.to(() => const UploadEventView()) : _showNotDisasterDialog,
+                            child: Container(
+                              width: 52,
+                              height: 52,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                      color: Colors.black.withOpacity(enabled ? 0.12 : 0.04),
+                                      blurRadius: enabled ? 8 : 2,
+                                      offset: const Offset(0, 4))
+                                ],
+                              ),
+                              child: Center(
+                                child: Icon(Icons.camera_alt,
+                                    color: enabled ? TPColors.primary500 : Colors.grey.shade400, size: 24),
+                              ),
                             ),
-                            child: Center(
-                              child: Icon(Icons.camera_alt,
-                                  color: TPColors.primary500, size: 24),
-                            ),
-                          ),
-                        ),
+                          );
+                        }),
                         const SizedBox(height: 10),
                         // locate (go to mocked current position)
                         GestureDetector(
@@ -944,19 +966,19 @@ class _DisasterShelterViewState extends State<DisasterShelterView> {
             Row(
               children: [
                 Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () => Get.to(() => const EventListView()),
-                    icon: const Icon(Icons.event_available),
-                    label: const TPText('災害事件列表',
-                        style: TPTextStyles.bodySemiBold,
-                        color: TPColors.white),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: TPColors.primary500,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10)),
-                    ),
-                  ),
+                  child: Obx(() {
+                    final enabled = _notificationService.isDisasterMode.value;
+                    return ElevatedButton.icon(
+                      onPressed: enabled ? () => Get.to(() => const EventListView()) : _showNotDisasterDialog,
+                      icon: Icon(Icons.event_available, color: enabled ? Colors.white : Colors.grey.shade500),
+                      label: TPText('災害事件列表', style: TPTextStyles.bodySemiBold, color: enabled ? TPColors.white : Colors.grey.shade500),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: enabled ? TPColors.primary500 : Colors.grey.shade300,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                    );
+                  }),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
