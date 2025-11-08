@@ -202,6 +202,7 @@ namespace Backend.Services
             {
                 // 從外部 API 獲取最新資料
                 var shelters = await _unifiedShelterService.GetAllSheltersAsync();
+                shelters.ForEach(s => s.CurrentOccupancy = Random.Shared.Next(0, s.Capacity));
 
                 // 更新資料庫快取
                 await _repository.RefreshAllSheltersAsync(shelters);
