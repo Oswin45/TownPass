@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:town_pass/page/disaster_shelter/event_list_view.dart';
+import 'package:town_pass/page/disaster_shelter/upload_event_view.dart';
 import 'package:town_pass/util/tp_app_bar.dart';
 import 'package:town_pass/util/tp_button.dart';
 import 'package:town_pass/util/tp_colors.dart';
@@ -50,9 +51,10 @@ class _DisasterShelterViewState extends State<DisasterShelterView> {
               icon: Icons.upload_rounded,
               color: TPColors.orange500,
               onTap: () {
-                // TODO: 導航到上傳事件
+                Get.to(() => const UploadEventView());
               },
             ),
+    
           ],
         ),
       ),
