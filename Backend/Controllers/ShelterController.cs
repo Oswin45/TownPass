@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Backend.Models;
 using Backend.Services;
+using Backend.Data;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Backend.Controllers
@@ -11,13 +12,16 @@ namespace Backend.Controllers
     {
         private readonly ILogger<ShelterController> _logger;
         private readonly CachedUnifiedShelterService _cachedShelterService;
+        private readonly ShelterDbContext _dbContext;
 
         public ShelterController(
             ILogger<ShelterController> logger,
-            CachedUnifiedShelterService cachedShelterService)
+            CachedUnifiedShelterService cachedShelterService,
+            ShelterDbContext dbContext)
         {
             _logger = logger;
             _cachedShelterService = cachedShelterService;
+            _dbContext = dbContext;
         }
 
         /// <summary>
@@ -308,6 +312,74 @@ namespace Backend.Controllers
             {
                 _logger.LogError(ex, "搜尋附近避難所時發生錯誤");
                 return StatusCode(500, new { success = false, message = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// 避難所簽到 - 增加當前佔用人數
+        /// POST /api/Shelter/checkin/{id}
+        /// </summary>
+        [HttpPost("checkin/{id}")]
+        public async Task<IActionResult> CheckInToShelter(int id)
+        {
+            try
+            {
+                _logger.LogInformation($"處理避難所簽到請求: ShelterId={id}");
+
+                // 從資料庫中查找避難所
+                var shelter = await _dbContext.Shelters.FindAsync(id);
+
+                if (shelter == null)
+                {
+                    _logger.LogWarning($"找不到避難所: Id={id}");
+                    return NotFound(new
+                    {
+                        success = false,
+                        message = $"找不到 ID 為 {id} 的避難所"
+                    });
+                }
+
+                // 檢查是否已達容量上限
+                // if (shelter.CurrentOccupancy >= shelter.Capacity)
+                // {
+                //     _logger.LogWarning($"避難所已達容量上限: Id={id}, Capacity={shelter.Capacity}");
+                //     return BadRequest(new
+                //     {
+                //         success = false,
+                //         message = "避難所已達容量上限",
+                //         shelterId = id,
+                //         shelterName = shelter.Name,
+                //         currentOccupancy = shelter.CurrentOccupancy,
+                //         capacity = shelter.Capacity
+                //     });
+                // }
+
+                // 增加當前佔用人數
+                shelter.CurrentOccupancy++;
+                await _dbContext.SaveChangesAsync();
+
+                _logger.LogInformation($"簽到成功: ShelterId={id}, NewOccupancy={shelter.CurrentOccupancy}/{shelter.Capacity}");
+
+                return Ok(new
+                {
+                    success = true,
+                    message = "簽到成功",
+                    shelterId = id,
+                    shelterName = shelter.Name,
+                    currentOccupancy = shelter.CurrentOccupancy,
+                    capacity = shelter.Capacity,
+                    availableSpace = shelter.Capacity - shelter.CurrentOccupancy
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"處理避難所簽到時發生錯誤: ShelterId={id}");
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = "簽到失敗",
+                    error = ex.Message
+                });
             }
         }
     }
