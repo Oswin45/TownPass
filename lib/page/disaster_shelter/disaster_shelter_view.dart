@@ -42,7 +42,6 @@ class _DisasterShelterViewState extends State<DisasterShelterView> {
 
   List<Shelter> _allShelters = [];
   Shelter? _nearestShelter;
-  Shelter? _nearestShelter;
   Timer? _cameraIdleTimer;
   final Map<int, BitmapDescriptor> _clusterIconCache = {};
   int _selectedDisasters = 0; // bitmask of selected disaster types
@@ -160,10 +159,6 @@ class _DisasterShelterViewState extends State<DisasterShelterView> {
       return;
     }
     final origin = '${_currentLocation!.latitude},${_currentLocation!.longitude}';
-    // use nearest shelter if available, otherwise default to Taipei City Hall
-    final destLat = _nearestShelter?.latitude ?? _taipeiCityHall.latitude;
-    final destLng = _nearestShelter?.longitude ?? _taipeiCityHall.longitude;
-    final destination = '$destLat,$destLng';
     // use nearest shelter if available, otherwise default to Taipei City Hall
     final destLat = _nearestShelter?.latitude ?? _taipeiCityHall.latitude;
     final destLng = _nearestShelter?.longitude ?? _taipeiCityHall.longitude;
@@ -911,9 +906,6 @@ class _DisasterShelterViewState extends State<DisasterShelterView> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-            TPText('您的最近避難所：${_nearestShelter?.name ?? '台北市政府'}',
-              style: TPTextStyles.h3SemiBold,
-              color: TPColors.grayscale900),
             TPText('您的最近避難所：${_nearestShelter?.name ?? '台北市政府'}',
               style: TPTextStyles.h3SemiBold,
               color: TPColors.grayscale900),
