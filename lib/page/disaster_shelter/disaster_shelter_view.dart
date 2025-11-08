@@ -40,6 +40,7 @@ class _DisasterShelterViewState extends State<DisasterShelterView> {
       Get.find<NotificationService>();
 
   List<Shelter> _allShelters = [];
+  Shelter? _nearestShelter;
   Timer? _cameraIdleTimer;
   final Map<int, BitmapDescriptor> _clusterIconCache = {};
   int _selectedDisasters = 0; // bitmask of selected disaster types
@@ -115,6 +116,8 @@ class _DisasterShelterViewState extends State<DisasterShelterView> {
 
       // refresh visible markers (clusters) because map projection may now work
       _updateVisibleMarkers();
+      // compute nearest shelter now we have location
+      _findNearestShelterWeighted();
     } catch (e) {
       debugPrint('[\u203A_initLocation] failed to get location: $e');
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('無法取得定位')));
@@ -150,7 +153,10 @@ class _DisasterShelterViewState extends State<DisasterShelterView> {
       return;
     }
     final origin = '${_currentLocation!.latitude},${_currentLocation!.longitude}';
-    final destination = '${_taipeiCityHall.latitude},${_taipeiCityHall.longitude}';
+    // use nearest shelter if available, otherwise default to Taipei City Hall
+    final destLat = _nearestShelter?.latitude ?? _taipeiCityHall.latitude;
+    final destLng = _nearestShelter?.longitude ?? _taipeiCityHall.longitude;
+    final destination = '$destLat,$destLng';
     final url = 'https://www.google.com/maps/dir/?api=1&origin=$origin&destination=$destination&travelmode=walking';
 
     try {
@@ -234,9 +240,53 @@ class _DisasterShelterViewState extends State<DisasterShelterView> {
 
       // After loading, update visible markers if controller ready
       _updateVisibleMarkers();
+      // compute nearest shelter if we already have location
+      _findNearestShelterWeighted();
     } catch (e) {
       // non-fatal — keep running with whatever markers we have
       debugPrint('[\u203A_loadShelters] Failed to load shelters: $e');
+    }
+  }
+
+  // Compute the nearest shelter by straight-line distance (meters).
+  // Prints top-5 closest shelters to the terminal and stores the closest as _nearestShelter.
+  Future<void> _findNearestShelterWeighted() async {
+    if (_allShelters.isEmpty) return;
+    if (_currentLocation == null) return;
+
+    try {
+      final userLat = _currentLocation!.latitude;
+      final userLng = _currentLocation!.longitude;
+
+      final List<MapEntry<Shelter, double>> scored = [];
+
+      for (final s in _allShelters) {
+        // compute distance in meters
+        final d = Geolocator.distanceBetween(userLat, userLng, s.latitude, s.longitude);
+        scored.add(MapEntry(s, d));
+      }
+
+      if (scored.isEmpty) return;
+
+      scored.sort((a, b) => a.value.compareTo(b.value));
+
+      // print top 5
+      final top = scored.take(5).toList();
+      debugPrint('--- 最近避難所 Top ${top.length} ---');
+      for (var i = 0; i < top.length; i++) {
+        final entry = top[i];
+        final s = entry.key;
+        final dist = entry.value;
+        debugPrint('${i + 1}. ${s.name} @ ${s.latitude},${s.longitude} — distance=${dist.toStringAsFixed(1)}m (capacity=${s.capacity ?? 'N/A'})');
+      }
+
+      final best = top.first.key;
+      setState(() {
+        _nearestShelter = best;
+      });
+      debugPrint('🏠 最近避難所：${best.name}（距離: ${top.first.value.toStringAsFixed(1)}m）');
+    } catch (e) {
+      debugPrint('❌ 最近避難所計算錯誤: $e');
     }
   }
 
@@ -740,9 +790,9 @@ class _DisasterShelterViewState extends State<DisasterShelterView> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        TPText('您目前最近的避難所：台北市政府',
-                            style: TPTextStyles.h3SemiBold,
-                            color: TPColors.grayscale900),
+            TPText('您的最近避難所：${_nearestShelter?.name ?? '台北市政府'}',
+              style: TPTextStyles.h3SemiBold,
+              color: TPColors.grayscale900),
                         const SizedBox(height: 6),
                         Row(
                           children: [
