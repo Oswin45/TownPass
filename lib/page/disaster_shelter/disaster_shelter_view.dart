@@ -48,6 +48,7 @@ class _DisasterShelterViewState extends State<DisasterShelterView> {
   int?
       _capacityFilter; // null=any, 1=small(<100),2=medium(100-1000),3=large(>1000)
   int _visibleShelterCount = 0;
+  bool _showWells = true; // whether to render emergency wells on the map
   // (no stored currentLatLng needed — markers contain current position)
 
   @override
@@ -66,6 +67,8 @@ class _DisasterShelterViewState extends State<DisasterShelterView> {
     );
   // load shelter list from bundled JSON
   _loadShelters();
+  // load emergency wells from bundled JSON
+  _loadWells();
 
   // initialize device location (ask permission and set marker/camera)
   _initLocation();
@@ -248,6 +251,37 @@ class _DisasterShelterViewState extends State<DisasterShelterView> {
     }
   }
 
+  // Load emergency wells from bundled JSON and parse into simple model
+  List<EmergencyWell> _allWells = [];
+
+  Future<void> _loadWells() async {
+    try {
+      String jsonStr = await rootBundle.loadString('assets/mock_data/emergency_well.json');
+      final decoded = json.decode(jsonStr);
+      List<dynamic>? rawList;
+      if (decoded is List) rawList = decoded;
+      else if (decoded is Map && decoded['data'] is List) rawList = decoded['data'] as List<dynamic>;
+
+      if (rawList != null) {
+        _allWells = rawList.map((e) {
+          try {
+            return EmergencyWell.fromJson(e as Map<String, dynamic>);
+          } catch (_) {
+            return EmergencyWell.empty();
+          }
+        }).where((w) => w.isValid).toList();
+        debugPrint('[\u203A_loadWells] loaded ${_allWells.length} emergency wells');
+      } else {
+        debugPrint('[\u203A_loadWells] no wells found in asset');
+      }
+
+      // update markers to include wells
+      _updateVisibleMarkers();
+    } catch (e) {
+      debugPrint('[\u203A_loadWells] failed to load wells: $e');
+    }
+  }
+
   // Compute the nearest shelter by straight-line distance (meters).
   // Prints top-5 closest shelters to the terminal and stores the closest as _nearestShelter.
   Future<void> _findNearestShelterWeighted() async {
@@ -337,11 +371,13 @@ class _DisasterShelterViewState extends State<DisasterShelterView> {
         }
       }
 
-      // prepare new marker set: keep non-shelter markers (current_location, taipei101)
-      final baseMarkers = _markers
-          .where((m) => !(m.markerId.value.startsWith('shelter_') ||
-              m.markerId.value.startsWith('cluster_')))
-          .toSet();
+    // prepare new marker set: keep non-shelter markers (current_location, taipei101)
+    // also remove previous well markers so we can re-add fresh ones
+    final baseMarkers = _markers
+      .where((m) => !(m.markerId.value.startsWith('shelter_') ||
+        m.markerId.value.startsWith('cluster_') ||
+        m.markerId.value.startsWith('well_')))
+      .toSet();
 
       final List<Marker> newShelterMarkers = [];
       for (final entry in grid.entries) {
@@ -404,12 +440,29 @@ class _DisasterShelterViewState extends State<DisasterShelterView> {
           );
         }
       }
+      // create well markers (orange) from loaded wells
+      final List<Marker> wellMarkers = [];
+      if (_showWells) {
+        for (var i = 0; i < _allWells.length; i++) {
+        final w = _allWells[i];
+        if (!w.isValid) continue;
+        final markerId = w.id.isNotEmpty ? 'well_${w.id}' : 'well_$i';
+        wellMarkers.add(Marker(
+          markerId: MarkerId(markerId),
+          position: LatLng(w.latitude, w.longitude),
+          infoWindow: InfoWindow(title: w.name, snippet: w.address),
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange),
+          zIndex: 3.0,
+        ));
+        }
+      }
 
       setState(() {
         _markers
           ..clear()
           ..addAll(baseMarkers)
-          ..addAll(newShelterMarkers);
+          ..addAll(newShelterMarkers)
+          ..addAll(wellMarkers);
       });
     } catch (e) {
       // ignore errors from getVisibleRegion or marker updates
@@ -525,6 +578,53 @@ class _DisasterShelterViewState extends State<DisasterShelterView> {
     );
   }
 
+  // Show legend modal explaining marker colors
+  void _showLegend() {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: TPColors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      builder: (ctx) {
+        return Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('圖例', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: TPColors.grayscale900)),
+              const SizedBox(height: 12),
+              Row(children: [
+                Container(width: 18, height: 18, decoration: BoxDecoration(color: Colors.blue, shape: BoxShape.circle)),
+                const SizedBox(width: 10),
+                TPText('當前位置', style: TPTextStyles.caption, color: TPColors.grayscale800),
+              ]),
+              const SizedBox(height: 10),
+              Row(children: [
+                Container(width: 18, height: 18, decoration: BoxDecoration(color: Colors.red, shape: BoxShape.circle)),
+                const SizedBox(width: 10),
+                TPText('避難所', style: TPTextStyles.caption, color: TPColors.grayscale800),
+              ]),
+              const SizedBox(height: 10),
+              Row(children: [
+                Container(width: 18, height: 18, decoration: BoxDecoration(color: TPColors.orange500, shape: BoxShape.circle)),
+                const SizedBox(width: 10),
+                TPText('戰備井', style: TPTextStyles.caption, color: TPColors.grayscale800),
+              ]),
+              const SizedBox(height: 14),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: const TPText('關閉', style: TPTextStyles.bodySemiBold, color: TPColors.primary500),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   Future<void> _openMapsDirectionsTo(LatLng destination) async {
     if (_currentLocation == null) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('無法取得目前位置')));
@@ -628,8 +728,9 @@ class _DisasterShelterViewState extends State<DisasterShelterView> {
       isScrollControlled: true,
       builder: (ctx) {
         // local mutable state for checkboxes inside the sheet
-        int tempDisasters = _selectedDisasters;
-        int? tempCapacity = _capacityFilter;
+    int tempDisasters = _selectedDisasters;
+  int? tempCapacity = _capacityFilter;
+  bool tempShowWells = _showWells;
         return StatefulBuilder(builder: (c, setS) {
           return Padding(
             padding:
@@ -698,6 +799,14 @@ class _DisasterShelterViewState extends State<DisasterShelterView> {
                     groupValue: tempCapacity,
                     title: const TPText('大型 (>1000)'),
                     onChanged: (v) => setS(() => tempCapacity = v)),
+                const SizedBox(height: 8),
+                SwitchListTile(
+                  value: tempShowWells,
+                  onChanged: (v) => setS(() => tempShowWells = v),
+                  title: const TPText('顯示戰備井', style: TPTextStyles.caption),
+                  subtitle: const TPText('在地圖上顯示/隱藏戰備井圖層'),
+                  activeColor: TPColors.orange500,
+                ),
                 const SizedBox(height: 12),
                 Row(
                   children: [
@@ -710,6 +819,7 @@ class _DisasterShelterViewState extends State<DisasterShelterView> {
                           setState(() {
                             _selectedDisasters = tempDisasters;
                             _capacityFilter = tempCapacity;
+                            _showWells = tempShowWells;
                           });
                           _updateVisibleMarkers();
                           Navigator.of(ctx).pop();
@@ -975,6 +1085,28 @@ class _DisasterShelterViewState extends State<DisasterShelterView> {
                             ),
                           ),
                         ),
+                        const SizedBox(height: 8),
+                        // legend button
+                        GestureDetector(
+                          onTap: _showLegend,
+                          child: Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                    color: Colors.black.withOpacity(0.08),
+                                    blurRadius: 6,
+                                    offset: const Offset(0, 3))
+                              ],
+                            ),
+                            child: Center(
+                              child: Icon(Icons.legend_toggle, color: TPColors.grayscale700, size: 20),
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -1216,4 +1348,47 @@ class Shelter {
       sizeInSquareMeters: sizeInSquareMeters ?? this.sizeInSquareMeters,
     );
   }
+  }
+
+// Simple EmergencyWell model for rendering emergency wells on the map
+class EmergencyWell {
+  final String id;
+  final String name;
+  final String address;
+  final double latitude;
+  final double longitude;
+
+  EmergencyWell({
+    required this.id,
+    required this.name,
+    required this.address,
+    required this.latitude,
+    required this.longitude,
+  });
+
+  bool get isValid => name.isNotEmpty && latitude != 0.0 && longitude != 0.0;
+
+  factory EmergencyWell.fromJson(Map<String, dynamic> json) {
+    double parseDouble(dynamic v) {
+      if (v is double) return v;
+      if (v is int) return v.toDouble();
+      if (v is String) return double.tryParse(v) ?? 0.0;
+      return 0.0;
+    }
+
+    return EmergencyWell(
+      id: json['id']?.toString() ?? '',
+      name: json['name']?.toString() ?? json['place']?.toString() ?? '應急井',
+      address: json['address']?.toString() ?? '',
+      latitude: parseDouble(json['latitude'] ?? json['lat'] ?? 0),
+      longitude: parseDouble(json['longitude'] ?? json['lng'] ?? 0),
+    );
+  }
+
+  EmergencyWell.empty()
+      : id = '',
+        name = '',
+        address = '',
+        latitude = 0.0,
+        longitude = 0.0;
 }
