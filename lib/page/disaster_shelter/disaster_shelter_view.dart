@@ -42,6 +42,7 @@ class _DisasterShelterViewState extends State<DisasterShelterView> {
 
   List<Shelter> _allShelters = [];
   Shelter? _nearestShelter;
+  Shelter? _nearestShelter;
   Timer? _cameraIdleTimer;
   final Map<int, BitmapDescriptor> _clusterIconCache = {};
   int _selectedDisasters = 0; // bitmask of selected disaster types
@@ -122,6 +123,8 @@ class _DisasterShelterViewState extends State<DisasterShelterView> {
       _updateVisibleMarkers();
       // compute nearest shelter now we have location
       _findNearestShelterWeighted();
+      // compute nearest shelter now we have location
+      _findNearestShelterWeighted();
     } catch (e) {
       debugPrint('[\u203A_initLocation] failed to get location: $e');
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('無法取得定位')));
@@ -157,6 +160,10 @@ class _DisasterShelterViewState extends State<DisasterShelterView> {
       return;
     }
     final origin = '${_currentLocation!.latitude},${_currentLocation!.longitude}';
+    // use nearest shelter if available, otherwise default to Taipei City Hall
+    final destLat = _nearestShelter?.latitude ?? _taipeiCityHall.latitude;
+    final destLng = _nearestShelter?.longitude ?? _taipeiCityHall.longitude;
+    final destination = '$destLat,$destLng';
     // use nearest shelter if available, otherwise default to Taipei City Hall
     final destLat = _nearestShelter?.latitude ?? _taipeiCityHall.latitude;
     final destLng = _nearestShelter?.longitude ?? _taipeiCityHall.longitude;
@@ -243,6 +250,8 @@ class _DisasterShelterViewState extends State<DisasterShelterView> {
 
       // After loading, update visible markers if controller ready
       _updateVisibleMarkers();
+      // compute nearest shelter if we already have location
+      _findNearestShelterWeighted();
       // compute nearest shelter if we already have location
       _findNearestShelterWeighted();
     } catch (e) {
@@ -492,9 +501,11 @@ class _DisasterShelterViewState extends State<DisasterShelterView> {
               Row(
                 children: [
                   if (s.capacity != null)
-                    TPText('容量: ${s.capacity}',
-                        style: TPTextStyles.caption,
-                        color: TPColors.grayscale600),
+                    TPText(
+                      '目前人數: ${s.currentOccupancy ?? 0}/${s.capacity}',
+                      style: TPTextStyles.caption,
+                      color: TPColors.grayscale600,
+                    ),
                   const Spacer(),
                   TPText(s.type,
                       style: TPTextStyles.caption,
@@ -903,6 +914,9 @@ class _DisasterShelterViewState extends State<DisasterShelterView> {
             TPText('您的最近避難所：${_nearestShelter?.name ?? '台北市政府'}',
               style: TPTextStyles.h3SemiBold,
               color: TPColors.grayscale900),
+            TPText('您的最近避難所：${_nearestShelter?.name ?? '台北市政府'}',
+              style: TPTextStyles.h3SemiBold,
+              color: TPColors.grayscale900),
                         const SizedBox(height: 6),
                         Row(
                           children: [
@@ -1209,6 +1223,7 @@ class Shelter {
   final double longitude;
   final String telephone;
   final double? sizeInSquareMeters;
+  final int? currentOccupancy;
 
   Shelter({
     required this.id,
@@ -1222,6 +1237,7 @@ class Shelter {
     required this.longitude,
     required this.telephone,
     this.sizeInSquareMeters,
+    this.currentOccupancy,
   });
 
   bool get isValid => name.isNotEmpty && latitude != 0.0 && longitude != 0.0;
@@ -1282,6 +1298,9 @@ class Shelter {
       name: json['name']?.toString() ?? json['place']?.toString() ?? '避難所',
       capacity:
           json.containsKey('capacity') ? parseInt(json['capacity']) : null,
+      currentOccupancy: json.containsKey('currentOccupancy')
+          ? parseInt(json['currentOccupancy'])
+          : null,    
       supportedDisasters: supported,
       accessibility: parseBool(accessVal),
       address: json['address']?.toString() ?? '',
@@ -1313,6 +1332,7 @@ class Shelter {
         type = '',
         name = '',
         capacity = null,
+        currentOccupancy = 0,
         supportedDisasters = 0,
         accessibility = false,
         address = '',
