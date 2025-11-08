@@ -1,3 +1,5 @@
+using Backend.Services;
+
 namespace Backend
 {
     public class Program
@@ -9,6 +11,11 @@ namespace Backend
             // Add services to the container.
             builder.Services.AddControllersWithViews();
             builder.Services.AddHttpClient();
+            
+            // Register Shelter Services
+            builder.Services.AddHttpClient<AirRaidShelterService>();
+            builder.Services.AddHttpClient<NaturalDisasterShelterService>();
+            builder.Services.AddScoped<UnifiedShelterService>();
 
             var app = builder.Build();
 

@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Backend.Models;
+using Backend.Services;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Backend.Controllers
@@ -9,83 +10,26 @@ namespace Backend.Controllers
     public class ShelterController : ControllerBase
     {
         private readonly ILogger<ShelterController> _logger;
-        private readonly IHttpClientFactory _httpClientFactory;
+        private readonly UnifiedShelterService _shelterService;
 
-        public ShelterController(ILogger<ShelterController> logger, IHttpClientFactory httpClientFactory)
+        public ShelterController(
+            ILogger<ShelterController> logger,
+            UnifiedShelterService shelterService)
         {
             _logger = logger;
-            _httpClientFactory = httpClientFactory;
+            _shelterService = shelterService;
         }
 
         /// <summary>
-        /// 將 NaturalDisasterShelter 轉換為 Shelter
+        /// 從服務獲取所有類型的避難所資料
         /// </summary>
-        private Shelter ConvertToShelter(NaturalDisasterShelter source)
+        private async Task<List<Shelter>> FetchAllShelters()
         {
-            if (source == null)
-                throw new ArgumentNullException(nameof(source));
-
-            // 解析災害類型
-            var supportedDisasters = DisasterTypes.None; // 預設支援空襲
-
-            if (!string.IsNullOrEmpty(source.FloodDisaster) && (source.FloodDisaster == "Y" || source.FloodDisaster == "備用"))
-                supportedDisasters |= DisasterTypes.Flooding;
-
-            if (!string.IsNullOrEmpty(source.EarthquakeDisaster) && (source.EarthquakeDisaster == "Y" || source.EarthquakeDisaster == "備用"))
-                supportedDisasters |= DisasterTypes.Earthquake;
-
-            if (!string.IsNullOrEmpty(source.Landslide) && (source.Landslide == "Y" || source.Landslide == "備用"))
-                supportedDisasters |= DisasterTypes.Landslide;
-
-            if (!string.IsNullOrEmpty(source.Tsunami) && (source.Tsunami == "是" || source.Tsunami == "備用"))
-                supportedDisasters |= DisasterTypes.Tsunami;
-
-            // 解析容納人數
-            int.TryParse(source.Capacity?.Trim(), out int capacity);
-
-            // 解析面積
-            int.TryParse(source.Area?.Trim(), out int area);
-
-            // 解析無障礙設施
-            bool hasAccessibility = !string.IsNullOrEmpty(source.AccessibleFacilities) && source.AccessibleFacilities == "是";
-
-            return new Shelter
-            {
-                Type = source.Type,
-                Name = source.Name ?? "未命名收容所",
-                Capacity = capacity,
-                SupportedDisasters = supportedDisasters,
-                Accesibility = hasAccessibility,
-                Address = source.Address ?? "",
-                Latitude = 0, // 需要從地址進行地理編碼或從其他來源取得
-                Longitude = 0, // 需要從地址進行地理編碼或從其他來源取得
-                Telephone = source.ContactPersonPhone ?? source.ManagerPhone,
-                SizeInSquareMeters = area
-            };
+            return await _shelterService.GetAllSheltersAsync();
         }
 
         /// <summary>
-        /// 從 API 獲取並轉換收容所資料
-        /// </summary>
-        private async Task<List<Shelter>> FetchAndConvertShelters()
-        {
-            var httpClient = _httpClientFactory.CreateClient();
-            var url = "https://data.taipei/api/v1/dataset/4c92dbd4-d259-495a-8390-52628119a4dd?scope=resourceAquire&limit=1000";
-
-            var response = await httpClient.GetAsync(url);
-            response.EnsureSuccessStatusCode();
-
-            var jsonString = await response.Content.ReadAsStringAsync();
-            var shelterResponse = JsonSerializer.Deserialize<NaturalDisasterResponse>(jsonString, new JsonSerializerOptions
-            {
-                PropertyNameCaseInsensitive = true
-            });
-
-            return shelterResponse?.Result?.Results?.Select(x => ConvertToShelter(x)).ToList() ?? new List<Shelter>();
-        }
-
-        /// <summary>
-        /// 獲取所有收容所
+        /// 獲取所有收容所（包含天然災害和防空避難所）
         /// GET /api/Shelter/all
         /// </summary>
         [HttpGet("all")]
@@ -93,8 +37,8 @@ namespace Backend.Controllers
         {
             try
             {
-                _logger.LogInformation("獲取所有避難收容所資料");
-                var shelters = await FetchAndConvertShelters();
+                _logger.LogInformation("獲取所有避難收容所資料（包含天然災害和防空避難所）");
+                var shelters = await _shelterService.GetAllSheltersAsync();
                 
                 return Ok(new
                 {
@@ -111,7 +55,7 @@ namespace Backend.Controllers
         }
 
         /// <summary>
-        /// 根據災害類型篩選收容所
+        /// 根據災害類型篩選收容所（包含所有類型避難所）
         /// GET /api/Shelter/by-disaster?type=Flooding
         /// 可用類型: None, Flooding, Earthquake, Landslide, Tsunami, AirRaid
         /// </summary>
@@ -130,8 +74,9 @@ namespace Backend.Controllers
                 }
 
                 _logger.LogInformation($"根據災害類型篩選收容所: {disasterType}");
-                var shelters = await FetchAndConvertShelters();
-                var filtered = shelters.Where(s => s.SupportedDisasters.HasFlag(disasterType)).ToList();
+                
+                // 使用統一服務獲取特定災害類型的避難所
+                var filtered = await _shelterService.GetSheltersByDisasterTypeAsync(disasterType);
 
                 return Ok(new
                 {
@@ -149,7 +94,7 @@ namespace Backend.Controllers
         }
 
         /// <summary>
-        /// 根據區域篩選收容所
+        /// 根據區域篩選收容所（僅支援天然災害避難所）
         /// GET /api/Shelter/by-district?district=中正區
         /// </summary>
         [HttpGet("by-district")]
@@ -164,28 +109,18 @@ namespace Backend.Controllers
 
                 _logger.LogInformation($"根據區域篩選收容所: {district}");
                 
-                // 需要從原始資料獲取區域資訊
-                var httpClient = _httpClientFactory.CreateClient();
-                var url = "https://data.taipei/api/v1/dataset/4c92dbd4-d259-495a-8390-52628119a4dd?scope=resourceAquire&limit=1000";
-                var response = await httpClient.GetAsync(url);
-                response.EnsureSuccessStatusCode();
-                var jsonString = await response.Content.ReadAsStringAsync();
-                var shelterResponse = JsonSerializer.Deserialize<NaturalDisasterResponse>(jsonString, new JsonSerializerOptions
-                {
-                    PropertyNameCaseInsensitive = true
-                });
-
-                var filteredOriginal = shelterResponse?.Result?.Results?
-                    .Where(s => s.District?.Contains(district, StringComparison.OrdinalIgnoreCase) == true)
-                    .Select(s => ConvertToShelter(s))
-                    .ToList() ?? new List<Shelter>();
+                // 區域篩選僅適用於天然災害避難所
+                var allShelters = await _shelterService.GetAllSheltersAsync();
+                var filtered = allShelters
+                    .Where(s => s.Address != null && s.Address.Contains(district, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
 
                 return Ok(new
                 {
                     success = true,
                     district = district,
-                    count = filteredOriginal.Count,
-                    data = filteredOriginal
+                    count = filtered.Count,
+                    data = filtered
                 });
             }
             catch (Exception ex)
@@ -196,7 +131,7 @@ namespace Backend.Controllers
         }
 
         /// <summary>
-        /// 根據最小容量篩選收容所
+        /// 根據最小容量篩選收容所（包含所有類型避難所）
         /// GET /api/Shelter/by-capacity?minCapacity=100
         /// </summary>
         [HttpGet("by-capacity")]
@@ -205,8 +140,11 @@ namespace Backend.Controllers
             try
             {
                 _logger.LogInformation($"根據最小容量篩選收容所: {minCapacity}");
-                var shelters = await FetchAndConvertShelters();
-                var filtered = shelters.Where(s => s.Capacity >= minCapacity).OrderByDescending(s => s.Capacity).ToList();
+                var allShelters = await _shelterService.GetAllSheltersAsync();
+                var filtered = allShelters
+                    .Where(s => s.Capacity >= minCapacity)
+                    .OrderByDescending(s => s.Capacity)
+                    .ToList();
 
                 return Ok(new
                 {
@@ -224,7 +162,7 @@ namespace Backend.Controllers
         }
 
         /// <summary>
-        /// 根據名稱搜尋收容所
+        /// 根據名稱搜尋收容所（包含所有類型避難所）
         /// GET /api/Shelter/search?name=學校
         /// </summary>
         [HttpGet("search")]
@@ -238,8 +176,7 @@ namespace Backend.Controllers
                 }
 
                 _logger.LogInformation($"搜尋收容所: {name}");
-                var shelters = await FetchAndConvertShelters();
-                var filtered = shelters.Where(s => s.Name.Contains(name, StringComparison.OrdinalIgnoreCase)).ToList();
+                var filtered = await _shelterService.SearchSheltersByNameAsync(name);
 
                 return Ok(new
                 {
@@ -257,7 +194,7 @@ namespace Backend.Controllers
         }
 
         /// <summary>
-        /// 獲取有無障礙設施的收容所
+        /// 獲取有無障礙設施的收容所（包含所有類型避難所）
         /// GET /api/Shelter/accessible
         /// </summary>
         [HttpGet("accessible")]
@@ -266,8 +203,8 @@ namespace Backend.Controllers
             try
             {
                 _logger.LogInformation("獲取有無障礙設施的收容所");
-                var shelters = await FetchAndConvertShelters();
-                var filtered = shelters.Where(s => s.Accesibility).ToList();
+                var allShelters = await _shelterService.GetAllSheltersAsync();
+                var filtered = allShelters.Where(s => s.Accesibility).ToList();
 
                 return Ok(new
                 {
@@ -284,7 +221,7 @@ namespace Backend.Controllers
         }
 
         /// <summary>
-        /// 獲取收容所統計資訊
+        /// 獲取收容所統計資訊（包含所有類型避難所）
         /// GET /api/Shelter/statistics
         /// </summary>
         [HttpGet("statistics")]
@@ -293,22 +230,26 @@ namespace Backend.Controllers
             try
             {
                 _logger.LogInformation("獲取收容所統計資訊");
-                var shelters = await FetchAndConvertShelters();
+                var statistics = await _shelterService.GetUnifiedStatisticsAsync();
+                var shelters = await _shelterService.GetAllSheltersAsync();
 
                 var stats = new
                 {
                     success = true,
-                    totalShelters = shelters.Count,
-                    totalCapacity = shelters.Sum(s => s.Capacity),
-                    averageCapacity = shelters.Any() ? (int)shelters.Average(s => s.Capacity) : 0,
-                    accessibleCount = shelters.Count(s => s.Accesibility),
+                    totalShelters = statistics.TotalShelters,
+                    totalCapacity = statistics.TotalCapacity,
+                    shelterTypes = new
+                    {
+                        naturalDisaster = statistics.NaturalDisasterShelters,
+                        airRaid = statistics.AirRaidShelters
+                    },
                     disasterSupport = new
                     {
-                        flooding = shelters.Count(s => s.SupportedDisasters.HasFlag(DisasterTypes.Flooding)),
-                        earthquake = shelters.Count(s => s.SupportedDisasters.HasFlag(DisasterTypes.Earthquake)),
-                        landslide = shelters.Count(s => s.SupportedDisasters.HasFlag(DisasterTypes.Landslide)),
-                        tsunami = shelters.Count(s => s.SupportedDisasters.HasFlag(DisasterTypes.Tsunami)),
-                        airRaid = shelters.Count(s => s.SupportedDisasters.HasFlag(DisasterTypes.AirRaid))
+                        flooding = statistics.DisasterSupport.FloodingCount,
+                        earthquake = statistics.DisasterSupport.EarthquakeCount,
+                        landslide = statistics.DisasterSupport.LandslideCount,
+                        tsunami = statistics.DisasterSupport.TsunamiCount,
+                        airRaid = statistics.DisasterSupport.AirRaidCount
                     },
                     largestShelter = shelters.OrderByDescending(s => s.Capacity).FirstOrDefault(),
                     smallestShelter = shelters.Where(s => s.Capacity > 0).OrderBy(s => s.Capacity).FirstOrDefault()
@@ -319,6 +260,53 @@ namespace Backend.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "獲取統計資訊時發生錯誤");
+                return StatusCode(500, new { success = false, message = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// 根據地理位置搜尋附近的避難所（包含所有類型）
+        /// GET /api/Shelter/nearby?latitude=25.060459&longitude=121.509074&radius=2
+        /// </summary>
+        [HttpGet("nearby")]
+        public async Task<IActionResult> GetNearbyShelters(
+            [FromQuery] double latitude,
+            [FromQuery] double longitude,
+            [FromQuery] double radius = 5.0)
+        {
+            try
+            {
+                // 驗證輸入
+                if (latitude < -90 || latitude > 90)
+                {
+                    return BadRequest(new { success = false, message = "緯度必須在 -90 到 90 之間" });
+                }
+
+                if (longitude < -180 || longitude > 180)
+                {
+                    return BadRequest(new { success = false, message = "經度必須在 -180 到 180 之間" });
+                }
+
+                if (radius <= 0 || radius > 100)
+                {
+                    return BadRequest(new { success = false, message = "半徑必須在 0 到 100 公里之間" });
+                }
+
+                _logger.LogInformation($"搜尋座標 ({latitude}, {longitude}) 附近 {radius} 公里內的避難所");
+                var shelters = await _shelterService.GetNearbySheltersAsync(latitude, longitude, radius);
+
+                return Ok(new
+                {
+                    success = true,
+                    searchLocation = new { latitude, longitude },
+                    radiusInKm = radius,
+                    count = shelters.Count,
+                    data = shelters
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "搜尋附近避難所時發生錯誤");
                 return StatusCode(500, new { success = false, message = ex.Message });
             }
         }

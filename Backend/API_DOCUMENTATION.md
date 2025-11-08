@@ -1,485 +1,16 @@
-# Town Pass API 文件
+# Shelter API 文件
+## TownPass 避難所 API 文件
 
-版本：v1.0  
-更新日期：2025-11-08
-
-## 目錄
-
-- [概述](#概述)
-- [基礎資訊](#基礎資訊)
-- [認證](#認證)
-- [回應格式](#回應格式)
-- [錯誤處理](#錯誤處理)
-- [API 端點](#api-端點)
-  - [健康檢查](#健康檢查)
-  - [避難疏散 API](#避難疏散-api)
-  - [避難所管理 API](#避難所管理-api)
+本文件描述了 TownPass 系統中避難所 API 的所有端點。此 API 整合了天然災害避難所和防空避難所的資料，提供統一的查詢介面。
 
 ---
 
-## 概述
-
-Town Pass API 提供避難所管理和疏散相關的功能，支援避難所的 CRUD 操作、地理位置搜尋，以及即時可用性查詢。
-
-## 基礎資訊
-
-- **Base URL（開發環境）**: `https://localhost:5001`
-- **Base URL（生產環境）**: `https://api.townpass.taipei`
-- **Protocol**: HTTPS
-- **Content-Type**: `application/json`
-- **Character Encoding**: UTF-8
-
-## 認證
-
-目前版本不需要認證。未來版本將支援 OAuth 2.0 / JWT Token。
-
-## 回應格式
-
-所有 API 回應均使用 JSON 格式。
-
-### 成功回應
-```json
-{
-  "id": 1,
-  "name": "台北市政府大樓",
-  "address": "台北市信義區市府路1號",
-  "latitude": 25.0375,
-  "longitude": 121.5645,
-  "capacity": 500,
-  "currentOccupancy": 0,
-  "availableSpaces": 500,
-  "contactPhone": "02-27208889",
-  "facilities": "飲水機、廁所、醫療站",
-  "isActive": true,
-  "createdAt": "2025-11-08T10:00:00Z"
-}
-```
-
-### 錯誤回應
-```json
-{
-  "message": "找不到 ID 為 999 的避難所"
-}
-```
-
-## 錯誤處理
-
-API 使用標準 HTTP 狀態碼：
-
-| 狀態碼 | 說明 |
-|--------|------|
-| 200 OK | 請求成功 |
-| 201 Created | 資源建立成功 |
-| 204 No Content | 請求成功但無回應內容 |
-| 400 Bad Request | 請求格式錯誤或參數無效 |
-| 404 Not Found | 找不到請求的資源 |
-| 500 Internal Server Error | 伺服器內部錯誤 |
-
----
-
-## API 端點
-
-### 健康檢查
-
-#### 檢查服務狀態
-
-**端點**: `GET /api/health`
-
-**描述**: 檢查 API 服務是否正常運作
-
-**請求範例**:
-```bash
-curl -X GET "https://localhost:5001/api/health"
-```
-
-**回應範例**:
-```json
-{
-  "status": "healthy",
-  "timestamp": "2025-11-08T10:30:00Z",
-  "service": "TownPass API"
-}
-```
-
-**狀態碼**:
-- `200 OK` - 服務正常
-
----
-
-### 避難疏散 API
-
-#### 1. 取得所有避難所
-
-**端點**: `GET /api/evacuation/shelters`
-
-**描述**: 取得系統中所有的避難所列表（包含啟用和停用的）
-
-**請求範例**:
-```bash
-curl -X GET "https://localhost:5001/api/evacuation/shelters"
-```
-
-**回應範例**:
-```json
-[
-  {
-    "id": 1,
-    "name": "台北市政府大樓",
-    "address": "台北市信義區市府路1號",
-    "latitude": 25.0375,
-    "longitude": 121.5645,
-    "capacity": 500,
-    "currentOccupancy": 150,
-    "availableSpaces": 350,
-    "contactPhone": "02-27208889",
-    "facilities": "飲水機、廁所、醫療站",
-    "isActive": true,
-    "createdAt": "2025-11-08T10:00:00Z"
-  },
-  {
-    "id": 2,
-    "name": "大安森林公園活動中心",
-    "address": "台北市大安區新生南路二段1號",
-    "latitude": 25.0265,
-    "longitude": 121.5364,
-    "capacity": 300,
-    "currentOccupancy": 0,
-    "availableSpaces": 300,
-    "contactPhone": "02-27003830",
-    "facilities": "飲水機、廁所、發電機",
-    "isActive": true,
-    "createdAt": "2025-11-08T10:00:00Z"
-  }
-]
-```
-
-**狀態碼**:
-- `200 OK` - 成功取得列表
-- `500 Internal Server Error` - 伺服器錯誤
-
----
-
-#### 2. 取得可用的避難所
-
-**端點**: `GET /api/evacuation/shelters/available`
-
-**描述**: 取得所有啟用且有空位的避難所
-
-**請求範例**:
-```bash
-curl -X GET "https://localhost:5001/api/evacuation/shelters/available"
-```
-
-**回應範例**:
-```json
-[
-  {
-    "id": 2,
-    "name": "大安森林公園活動中心",
-    "address": "台北市大安區新生南路二段1號",
-    "latitude": 25.0265,
-    "longitude": 121.5364,
-    "capacity": 300,
-    "currentOccupancy": 0,
-    "availableSpaces": 300,
-    "contactPhone": "02-27003830",
-    "facilities": "飲水機、廁所、發電機",
-    "isActive": true,
-    "createdAt": "2025-11-08T10:00:00Z"
-  }
-]
-```
-
-**狀態碼**:
-- `200 OK` - 成功取得列表
-- `500 Internal Server Error` - 伺服器錯誤
-
----
-
-#### 3. 尋找附近的避難所
-
-**端點**: `GET /api/evacuation/shelters/nearby`
-
-**描述**: 根據經緯度座標尋找指定半徑內的避難所
-
-**查詢參數**:
-
-| 參數 | 類型 | 必填 | 預設值 | 說明 |
-|------|------|------|--------|------|
-| latitude | number | 是 | - | 緯度（-90 到 90） |
-| longitude | number | 是 | - | 經度（-180 到 180） |
-| radius | number | 否 | 5.0 | 搜尋半徑（公里） |
-
-**請求範例**:
-```bash
-# 尋找台北市政府附近 5 公里內的避難所
-curl -X GET "https://localhost:5001/api/evacuation/shelters/nearby?latitude=25.0375&longitude=121.5645&radius=5"
-```
-
-**回應範例**:
-```json
-[
-  {
-    "id": 1,
-    "name": "台北市政府大樓",
-    "address": "台北市信義區市府路1號",
-    "latitude": 25.0375,
-    "longitude": 121.5645,
-    "capacity": 500,
-    "currentOccupancy": 150,
-    "availableSpaces": 350,
-    "contactPhone": "02-27208889",
-    "facilities": "飲水機、廁所、醫療站",
-    "isActive": true,
-    "createdAt": "2025-11-08T10:00:00Z"
-  },
-  {
-    "id": 2,
-    "name": "大安森林公園活動中心",
-    "address": "台北市大安區新生南路二段1號",
-    "latitude": 25.0265,
-    "longitude": 121.5364,
-    "capacity": 300,
-    "currentOccupancy": 0,
-    "availableSpaces": 300,
-    "contactPhone": "02-27003830",
-    "facilities": "飲水機、廁所、發電機",
-    "isActive": true,
-    "createdAt": "2025-11-08T10:00:00Z"
-  }
-]
-```
-
-**狀態碼**:
-- `200 OK` - 成功取得列表
-- `400 Bad Request` - 座標參數無效
-- `500 Internal Server Error` - 伺服器錯誤
-
----
-
-#### 4. 取得特定避難所資訊
-
-**端點**: `GET /api/evacuation/shelters/{id}`
-
-**描述**: 根據 ID 取得特定避難所的詳細資訊
-
-**路徑參數**:
-
-| 參數 | 類型 | 說明 |
-|------|------|------|
-| id | integer | 避難所 ID |
-
-**請求範例**:
-```bash
-curl -X GET "https://localhost:5001/api/evacuation/shelters/1"
-```
-
-**回應範例**:
-```json
-{
-  "id": 1,
-  "name": "台北市政府大樓",
-  "address": "台北市信義區市府路1號",
-  "latitude": 25.0375,
-  "longitude": 121.5645,
-  "capacity": 500,
-  "currentOccupancy": 150,
-  "availableSpaces": 350,
-  "contactPhone": "02-27208889",
-  "facilities": "飲水機、廁所、醫療站",
-  "isActive": true,
-  "createdAt": "2025-11-08T10:00:00Z"
-}
-```
-
-**狀態碼**:
-- `200 OK` - 成功取得資料
-- `404 Not Found` - 找不到該避難所
-- `500 Internal Server Error` - 伺服器錯誤
-
----
-
-### 避難所管理 API
-
-#### 1. 取得所有避難所
-
-**端點**: `GET /api/shelters`
-
-**描述**: 取得所有避難所列表
-
-**請求範例**:
-```bash
-curl -X GET "https://localhost:5001/api/shelters"
-```
-
-**回應**: 與 `/api/evacuation/shelters` 相同
-
----
-
-#### 2. 取得特定避難所
-
-**端點**: `GET /api/shelters/{id}`
-
-**描述**: 根據 ID 取得特定避難所
-
-**路徑參數**:
-
-| 參數 | 類型 | 說明 |
-|------|------|------|
-| id | integer | 避難所 ID |
-
-**請求範例**:
-```bash
-curl -X GET "https://localhost:5001/api/shelters/1"
-```
-
-**回應**: 與 `/api/evacuation/shelters/{id}` 相同
-
----
-
-#### 3. 建立新避難所
-
-**端點**: `POST /api/shelters`
-
-**描述**: 建立一個新的避難所
-
-**請求 Body**:
-
-| 欄位 | 類型 | 必填 | 說明 |
-|------|------|------|------|
-| name | string | 是 | 避難所名稱 |
-| address | string | 是 | 地址 |
-| latitude | number | 是 | 緯度 |
-| longitude | number | 是 | 經度 |
-| capacity | integer | 是 | 容納人數 |
-| contactPhone | string | 否 | 聯絡電話 |
-| facilities | string | 否 | 設施描述 |
-
-**請求範例**:
-```bash
-curl -X POST "https://localhost:5001/api/shelters" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "信義國中",
-    "address": "台北市信義區松仁路158巷1號",
-    "latitude": 25.0333,
-    "longitude": 121.5654,
-    "capacity": 200,
-    "contactPhone": "02-27201066",
-    "facilities": "飲水機、廁所、操場"
-  }'
-```
-
-**回應範例**:
-```json
-{
-  "id": 3,
-  "name": "信義國中",
-  "address": "台北市信義區松仁路158巷1號",
-  "latitude": 25.0333,
-  "longitude": 121.5654,
-  "capacity": 200,
-  "currentOccupancy": 0,
-  "availableSpaces": 200,
-  "contactPhone": "02-27201066",
-  "facilities": "飲水機、廁所、操場",
-  "isActive": true,
-  "createdAt": "2025-11-08T11:00:00Z"
-}
-```
-
-**狀態碼**:
-- `201 Created` - 成功建立，Location header 包含新資源 URL
-- `400 Bad Request` - 請求格式錯誤或必填欄位缺失
-- `500 Internal Server Error` - 伺服器錯誤
-
----
-
-#### 4. 更新避難所資訊
-
-**端點**: `PUT /api/shelters/{id}`
-
-**描述**: 更新指定避難所的資訊（部分更新）
-
-**路徑參數**:
-
-| 參數 | 類型 | 說明 |
-|------|------|------|
-| id | integer | 避難所 ID |
-
-**請求 Body**（所有欄位皆為選填）:
-
-| 欄位 | 類型 | 說明 |
-|------|------|------|
-| name | string | 避難所名稱 |
-| address | string | 地址 |
-| latitude | number | 緯度 |
-| longitude | number | 經度 |
-| capacity | integer | 容納人數 |
-| currentOccupancy | integer | 目前人數 |
-| contactPhone | string | 聯絡電話 |
-| facilities | string | 設施描述 |
-| isActive | boolean | 是否啟用 |
-
-**請求範例**:
-```bash
-curl -X PUT "https://localhost:5001/api/shelters/1" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "currentOccupancy": 200,
-    "facilities": "飲水機、廁所、醫療站、發電機"
-  }'
-```
-
-**回應範例**:
-```json
-{
-  "id": 1,
-  "name": "台北市政府大樓",
-  "address": "台北市信義區市府路1號",
-  "latitude": 25.0375,
-  "longitude": 121.5645,
-  "capacity": 500,
-  "currentOccupancy": 200,
-  "availableSpaces": 300,
-  "contactPhone": "02-27208889",
-  "facilities": "飲水機、廁所、醫療站、發電機",
-  "isActive": true,
-  "createdAt": "2025-11-08T10:00:00Z"
-}
-```
-
-**狀態碼**:
-- `200 OK` - 成功更新
-- `400 Bad Request` - 請求格式錯誤
-- `404 Not Found` - 找不到該避難所
-- `500 Internal Server Error` - 伺服器錯誤
-
----
-
-#### 5. 刪除避難所
-
-**端點**: `DELETE /api/shelters/{id}`
-
-**描述**: 刪除指定的避難所
-
-**路徑參數**:
-
-| 參數 | 類型 | 說明 |
-|------|------|------|
-| id | integer | 避難所 ID |
-
-**請求範例**:
-```bash
-curl -X DELETE "https://localhost:5001/api/shelters/3"
-```
-
-**回應**: 無內容
-
-**狀態碼**:
-- `204 No Content` - 成功刪除
-- `404 Not Found` - 找不到該避難所
-- `500 Internal Server Error` - 伺服器錯誤
+## 基本資訊
+
+- **Base URL**: `/api/Shelter`
+- **資料格式**: JSON
+- **編碼**: UTF-8
+- **支援的災害類型**: `None`, `Flooding`, `Earthquake`, `Landslide`, `Tsunami`, `AirRaid`
 
 ---
 
@@ -489,416 +20,502 @@ curl -X DELETE "https://localhost:5001/api/shelters/3"
 
 ```json
 {
-  "id": "integer (唯一識別碼)",
-  "name": "string (避難所名稱)",
-  "address": "string (地址)",
-  "latitude": "number (緯度)",
-  "longitude": "number (經度)",
-  "capacity": "integer (容納人數)",
-  "currentOccupancy": "integer (目前人數)",
-  "availableSpaces": "integer (可用空位，自動計算)",
-  "contactPhone": "string (聯絡電話，可選)",
-  "facilities": "string (設施描述，可選)",
-  "isActive": "boolean (是否啟用)",
-  "createdAt": "datetime (建立時間)"
+  "type": "string",              // 避難所類型 (NaturalDisaster 或 AirRaid)
+  "name": "string",              // 避難所名稱
+  "capacity": 0,                 // 容納人數
+  "supportedDisasters": 0,       // 支援的災害類型 (位元旗標)
+  "accesibility": false,         // 是否有無障礙設施
+  "address": "string",           // 地址
+  "latitude": 0.0,               // 緯度
+  "longitude": 0.0,              // 經度
+  "telephone": "string",         // 聯絡電話 (可能為 null)
+  "sizeInSquareMeters": 0        // 面積 (平方公尺)
 }
 ```
+
+### DisasterTypes (災害類型)
+
+支援的災害類型使用位元旗標表示，可以組合多種類型：
+
+- `None` = 0
+- `Flooding` = 1 (淹水)
+- `Earthquake` = 2 (地震)
+- `Landslide` = 4 (土石流)
+- `Tsunami` = 8 (海嘯)
+- `AirRaid` = 16 (防空)
 
 ---
 
-## Flutter 整合範例
+## API 端點
 
-### 建立 API Service 類別
+### 1. 獲取所有避難所
 
-```dart
-import 'dart:convert';
-import 'package:http/http.dart' as http;
+取得所有類型的避難所資料，包含天然災害避難所和防空避難所。
 
-class TownPassApiService {
-  static const String baseUrl = 'https://localhost:5001';
-  
-  // 取得所有避難所
-  Future<List<Shelter>> getAllShelters() async {
-    final response = await http.get(
-      Uri.parse('$baseUrl/api/shelters'),
-      headers: {'Content-Type': 'application/json'},
-    );
-    
-    if (response.statusCode == 200) {
-      final List<dynamic> data = json.decode(response.body);
-      return data.map((json) => Shelter.fromJson(json)).toList();
-    } else {
-      throw Exception('無法取得避難所列表');
+**端點**: `GET /api/Shelter/all`
+
+**請求參數**: 無
+
+**回應範例**:
+```json
+{
+  "success": true,
+  "count": 1234,
+  "data": [
+    {
+      "type": "學校",
+      "name": "臺北市立中正國小",
+      "capacity": 500,
+      "supportedDisasters": 7,
+      "accesibility": true,
+      "address": "臺北市中正區某某路123號",
+      "latitude": 25.033,
+      "longitude": 121.516,
+      "telephone": "02-12345678",
+      "sizeInSquareMeters": 2000
     }
-  }
-  
-  // 取得可用避難所
-  Future<List<Shelter>> getAvailableShelters() async {
-    final response = await http.get(
-      Uri.parse('$baseUrl/api/evacuation/shelters/available'),
-      headers: {'Content-Type': 'application/json'},
-    );
-    
-    if (response.statusCode == 200) {
-      final List<dynamic> data = json.decode(response.body);
-      return data.map((json) => Shelter.fromJson(json)).toList();
-    } else {
-      throw Exception('無法取得可用避難所');
-    }
-  }
-  
-  // 尋找附近避難所
-  Future<List<Shelter>> findNearbyShelters(
-    double latitude, 
-    double longitude, 
-    {double radius = 5.0}
-  ) async {
-    final uri = Uri.parse('$baseUrl/api/evacuation/shelters/nearby')
-      .replace(queryParameters: {
-        'latitude': latitude.toString(),
-        'longitude': longitude.toString(),
-        'radius': radius.toString(),
-      });
-    
-    final response = await http.get(
-      uri,
-      headers: {'Content-Type': 'application/json'},
-    );
-    
-    if (response.statusCode == 200) {
-      final List<dynamic> data = json.decode(response.body);
-      return data.map((json) => Shelter.fromJson(json)).toList();
-    } else {
-      throw Exception('無法尋找附近避難所');
-    }
-  }
-  
-  // 取得特定避難所
-  Future<Shelter> getShelterById(int id) async {
-    final response = await http.get(
-      Uri.parse('$baseUrl/api/shelters/$id'),
-      headers: {'Content-Type': 'application/json'},
-    );
-    
-    if (response.statusCode == 200) {
-      return Shelter.fromJson(json.decode(response.body));
-    } else if (response.statusCode == 404) {
-      throw Exception('找不到該避難所');
-    } else {
-      throw Exception('無法取得避難所資訊');
-    }
-  }
-  
-  // 建立新避難所
-  Future<Shelter> createShelter(CreateShelterRequest request) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/api/shelters'),
-      headers: {'Content-Type': 'application/json'},
-      body: json.encode(request.toJson()),
-    );
-    
-    if (response.statusCode == 201) {
-      return Shelter.fromJson(json.decode(response.body));
-    } else {
-      throw Exception('無法建立避難所');
-    }
-  }
-  
-  // 更新避難所
-  Future<Shelter> updateShelter(int id, UpdateShelterRequest request) async {
-    final response = await http.put(
-      Uri.parse('$baseUrl/api/shelters/$id'),
-      headers: {'Content-Type': 'application/json'},
-      body: json.encode(request.toJson()),
-    );
-    
-    if (response.statusCode == 200) {
-      return Shelter.fromJson(json.decode(response.body));
-    } else if (response.statusCode == 404) {
-      throw Exception('找不到該避難所');
-    } else {
-      throw Exception('無法更新避難所');
-    }
-  }
-  
-  // 刪除避難所
-  Future<void> deleteShelter(int id) async {
-    final response = await http.delete(
-      Uri.parse('$baseUrl/api/shelters/$id'),
-      headers: {'Content-Type': 'application/json'},
-    );
-    
-    if (response.statusCode != 204) {
-      if (response.statusCode == 404) {
-        throw Exception('找不到該避難所');
-      } else {
-        throw Exception('無法刪除避難所');
-      }
-    }
-  }
+  ]
 }
 ```
 
-### 資料模型類別
-
-```dart
-class Shelter {
-  final int id;
-  final String name;
-  final String address;
-  final double latitude;
-  final double longitude;
-  final int capacity;
-  final int currentOccupancy;
-  final int availableSpaces;
-  final String? contactPhone;
-  final String? facilities;
-  final bool isActive;
-  final DateTime createdAt;
-  
-  Shelter({
-    required this.id,
-    required this.name,
-    required this.address,
-    required this.latitude,
-    required this.longitude,
-    required this.capacity,
-    required this.currentOccupancy,
-    required this.availableSpaces,
-    this.contactPhone,
-    this.facilities,
-    required this.isActive,
-    required this.createdAt,
-  });
-  
-  factory Shelter.fromJson(Map<String, dynamic> json) {
-    return Shelter(
-      id: json['id'],
-      name: json['name'],
-      address: json['address'],
-      latitude: json['latitude'],
-      longitude: json['longitude'],
-      capacity: json['capacity'],
-      currentOccupancy: json['currentOccupancy'],
-      availableSpaces: json['availableSpaces'],
-      contactPhone: json['contactPhone'],
-      facilities: json['facilities'],
-      isActive: json['isActive'],
-      createdAt: DateTime.parse(json['createdAt']),
-    );
-  }
-}
-
-class CreateShelterRequest {
-  final String name;
-  final String address;
-  final double latitude;
-  final double longitude;
-  final int capacity;
-  final String? contactPhone;
-  final String? facilities;
-  
-  CreateShelterRequest({
-    required this.name,
-    required this.address,
-    required this.latitude,
-    required this.longitude,
-    required this.capacity,
-    this.contactPhone,
-    this.facilities,
-  });
-  
-  Map<String, dynamic> toJson() {
-    return {
-      'name': name,
-      'address': address,
-      'latitude': latitude,
-      'longitude': longitude,
-      'capacity': capacity,
-      if (contactPhone != null) 'contactPhone': contactPhone,
-      if (facilities != null) 'facilities': facilities,
-    };
-  }
-}
-
-class UpdateShelterRequest {
-  final String? name;
-  final String? address;
-  final double? latitude;
-  final double? longitude;
-  final int? capacity;
-  final int? currentOccupancy;
-  final String? contactPhone;
-  final String? facilities;
-  final bool? isActive;
-  
-  UpdateShelterRequest({
-    this.name,
-    this.address,
-    this.latitude,
-    this.longitude,
-    this.capacity,
-    this.currentOccupancy,
-    this.contactPhone,
-    this.facilities,
-    this.isActive,
-  });
-  
-  Map<String, dynamic> toJson() {
-    final map = <String, dynamic>{};
-    if (name != null) map['name'] = name;
-    if (address != null) map['address'] = address;
-    if (latitude != null) map['latitude'] = latitude;
-    if (longitude != null) map['longitude'] = longitude;
-    if (capacity != null) map['capacity'] = capacity;
-    if (currentOccupancy != null) map['currentOccupancy'] = currentOccupancy;
-    if (contactPhone != null) map['contactPhone'] = contactPhone;
-    if (facilities != null) map['facilities'] = facilities;
-    if (isActive != null) map['isActive'] = isActive;
-    return map;
-  }
+**錯誤回應**:
+```json
+{
+  "success": false,
+  "message": "錯誤訊息"
 }
 ```
 
-### 使用範例
-
-```dart
-// 在 Widget 中使用
-class ShelterListPage extends StatefulWidget {
-  @override
-  _ShelterListPageState createState() => _ShelterListPageState();
-}
-
-class _ShelterListPageState extends State<ShelterListPage> {
-  final apiService = TownPassApiService();
-  List<Shelter> shelters = [];
-  bool isLoading = true;
-  
-  @override
-  void initState() {
-    super.initState();
-    loadShelters();
-  }
-  
-  Future<void> loadShelters() async {
-    try {
-      final data = await apiService.getAvailableShelters();
-      setState(() {
-        shelters = data;
-        isLoading = false;
-      });
-    } catch (e) {
-      setState(() {
-        isLoading = false;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('載入失敗: $e')),
-      );
-    }
-  }
-  
-  @override
-  Widget build(BuildContext context) {
-    if (isLoading) {
-      return Center(child: CircularProgressIndicator());
-    }
-    
-    return ListView.builder(
-      itemCount: shelters.length,
-      itemBuilder: (context, index) {
-        final shelter = shelters[index];
-        return ListTile(
-          title: Text(shelter.name),
-          subtitle: Text(shelter.address),
-          trailing: Text('可容納: ${shelter.availableSpaces}人'),
-        );
-      },
-    );
-  }
-}
-```
+**HTTP 狀態碼**:
+- `200 OK`: 成功
+- `500 Internal Server Error`: 伺服器錯誤
 
 ---
 
-## 測試工具
+### 2. 根據災害類型篩選避難所
 
-### Postman Collection
+根據指定的災害類型篩選避難所。
 
-您可以匯入以下 Postman Collection 快速測試所有 API：
+**端點**: `GET /api/Shelter/by-disaster`
 
-[下載 Postman Collection](./TownPass-API.postman_collection.json)
+**請求參數**:
+| 參數 | 類型 | 必填 | 說明 |
+|------|------|------|------|
+| type | string | 是 | 災害類型 (None, Flooding, Earthquake, Landslide, Tsunami, AirRaid) |
 
-### cURL 測試腳本
+**請求範例**:
+```
+GET /api/Shelter/by-disaster?type=Flooding
+```
+
+**回應範例**:
+```json
+{
+  "success": true,
+  "disasterType": "Flooding",
+  "count": 567,
+  "data": [
+    {
+      "type": "學校",
+      "name": "某某國小",
+      "capacity": 300,
+      "supportedDisasters": 1,
+      "accesibility": false,
+      "address": "臺北市某某區某某路456號",
+      "latitude": 25.045,
+      "longitude": 121.520,
+      "telephone": "02-87654321",
+      "sizeInSquareMeters": 1500
+    }
+  ]
+}
+```
+
+**錯誤回應**:
+```json
+{
+  "success": false,
+  "message": "無效的災害類型。可用類型: None, Flooding, Earthquake, Landslide, Tsunami, AirRaid"
+}
+```
+
+**HTTP 狀態碼**:
+- `200 OK`: 成功
+- `400 Bad Request`: 無效的災害類型
+- `500 Internal Server Error`: 伺服器錯誤
+
+---
+
+### 3. 根據區域篩選避難所
+
+根據地址中的區域名稱篩選避難所 (主要適用於天然災害避難所)。
+
+**端點**: `GET /api/Shelter/by-district`
+
+**請求參數**:
+| 參數 | 類型 | 必填 | 說明 |
+|------|------|------|------|
+| district | string | 是 | 區域名稱 (例如: 中正區) |
+
+**請求範例**:
+```
+GET /api/Shelter/by-district?district=中正區
+```
+
+**回應範例**:
+```json
+{
+  "success": true,
+  "district": "中正區",
+  "count": 45,
+  "data": [
+    {
+      "type": "區公所",
+      "name": "中正區公所",
+      "capacity": 200,
+      "supportedDisasters": 3,
+      "accesibility": true,
+      "address": "臺北市中正區某某路789號",
+      "latitude": 25.040,
+      "longitude": 121.515,
+      "telephone": null,
+      "sizeInSquareMeters": 1200
+    }
+  ]
+}
+```
+
+**錯誤回應**:
+```json
+{
+  "success": false,
+  "message": "請提供區域名稱"
+}
+```
+
+**HTTP 狀態碼**:
+- `200 OK`: 成功
+- `400 Bad Request`: 缺少必要參數
+- `500 Internal Server Error`: 伺服器錯誤
+
+---
+
+### 4. 根據容量篩選避難所
+
+篩選出容量大於或等於指定值的避難所，並按容量由大到小排序。
+
+**端點**: `GET /api/Shelter/by-capacity`
+
+**請求參數**:
+| 參數 | 類型 | 必填 | 預設值 | 說明 |
+|------|------|------|--------|------|
+| minCapacity | int | 否 | 0 | 最小容納人數 |
+
+**請求範例**:
+```
+GET /api/Shelter/by-capacity?minCapacity=100
+```
+
+**回應範例**:
+```json
+{
+  "success": true,
+  "minCapacity": 100,
+  "count": 890,
+  "data": [
+    {
+      "type": "體育場館/運動中心",
+      "name": "大型體育館",
+      "capacity": 5000,
+      "supportedDisasters": 15,
+      "accesibility": true,
+      "address": "臺北市某某區某某路1號",
+      "latitude": 25.050,
+      "longitude": 121.530,
+      "telephone": "02-11111111",
+      "sizeInSquareMeters": 10000
+    }
+  ]
+}
+```
+
+**HTTP 狀態碼**:
+- `200 OK`: 成功
+- `500 Internal Server Error`: 伺服器錯誤
+
+---
+
+### 5. 根據名稱搜尋避難所
+
+根據關鍵字搜尋避難所名稱。
+
+**端點**: `GET /api/Shelter/search`
+
+**請求參數**:
+| 參數 | 類型 | 必填 | 說明 |
+|------|------|------|------|
+| name | string | 是 | 搜尋關鍵字 |
+
+**請求範例**:
+```
+GET /api/Shelter/search?name=學校
+```
+
+**回應範例**:
+```json
+{
+  "success": true,
+  "keyword": "學校",
+  "count": 234,
+  "data": [
+    {
+      "type": "學校",
+      "name": "臺北市立某某國小",
+      "capacity": 400,
+      "supportedDisasters": 7,
+      "accesibility": true,
+      "address": "臺北市某某區某某路100號",
+      "latitude": 25.035,
+      "longitude": 121.525,
+      "telephone": "02-22222222",
+      "sizeInSquareMeters": 1800
+    }
+  ]
+}
+```
+
+**錯誤回應**:
+```json
+{
+  "success": false,
+  "message": "請提供搜尋關鍵字"
+}
+```
+
+**HTTP 狀態碼**:
+- `200 OK`: 成功
+- `400 Bad Request`: 缺少搜尋關鍵字
+- `500 Internal Server Error`: 伺服器錯誤
+
+---
+
+### 6. 獲取有無障礙設施的避難所
+
+取得所有具備無障礙設施的避難所。
+
+**端點**: `GET /api/Shelter/accessible`
+
+**請求參數**: 無
+
+**回應範例**:
+```json
+{
+  "success": true,
+  "count": 456,
+  "data": [
+    {
+      "type": "學校",
+      "name": "無障礙友善學校",
+      "capacity": 300,
+      "supportedDisasters": 7,
+      "accesibility": true,
+      "address": "臺北市某某區某某路200號",
+      "latitude": 25.042,
+      "longitude": 121.518,
+      "telephone": "02-33333333",
+      "sizeInSquareMeters": 1600
+    }
+  ]
+}
+```
+
+**HTTP 狀態碼**:
+- `200 OK`: 成功
+- `500 Internal Server Error`: 伺服器錯誤
+
+---
+
+### 7. 獲取避難所統計資訊
+
+取得避難所的整體統計資訊，包含總數、容量、類型分佈等。
+
+**端點**: `GET /api/Shelter/statistics`
+
+**請求參數**: 無
+
+**回應範例**:
+```json
+{
+  "success": true,
+  "totalShelters": 1234,
+  "totalCapacity": 500000,
+  "shelterTypes": {
+    "naturalDisaster": 1000,
+    "airRaid": 234
+  },
+  "disasterSupport": {
+    "flooding": 800,
+    "earthquake": 950,
+    "landslide": 600,
+    "tsunami": 300,
+    "airRaid": 234
+  },
+  "largestShelter": {
+    "type": "體育場館/運動中心",
+    "name": "大型體育館",
+    "capacity": 5000,
+    "supportedDisasters": 15,
+    "accesibility": true,
+    "address": "臺北市某某區某某路1號",
+    "latitude": 25.050,
+    "longitude": 121.530,
+    "telephone": "02-11111111",
+    "sizeInSquareMeters": 10000
+  },
+  "smallestShelter": {
+    "type": "AirRaid",
+    "name": "小型地下室",
+    "capacity": 10,
+    "supportedDisasters": 16,
+    "accesibility": false,
+    "address": "臺北市某某區某某路999號",
+    "latitude": 25.025,
+    "longitude": 121.510,
+    "telephone": null,
+    "sizeInSquareMeters": 50
+  }
+}
+```
+
+**HTTP 狀態碼**:
+- `200 OK`: 成功
+- `500 Internal Server Error`: 伺服器錯誤
+
+---
+
+### 8. 根據地理位置搜尋附近的避難所
+
+根據經緯度座標搜尋指定半徑範圍內的避難所，並按距離由近到遠排序。
+
+**端點**: `GET /api/Shelter/nearby`
+
+**請求參數**:
+| 參數 | 類型 | 必填 | 預設值 | 說明 |
+|------|------|------|--------|------|
+| latitude | double | 是 | - | 緯度 (-90 到 90) |
+| longitude | double | 是 | - | 經度 (-180 到 180) |
+| radius | double | 否 | 5.0 | 搜尋半徑 (公里，0 到 100) |
+
+**請求範例**:
+```
+GET /api/Shelter/nearby?latitude=25.060459&longitude=121.509074&radius=2
+```
+
+**回應範例**:
+```json
+{
+  "success": true,
+  "searchLocation": {
+    "latitude": 25.060459,
+    "longitude": 121.509074
+  },
+  "radiusInKm": 2.0,
+  "count": 15,
+  "data": [
+    {
+      "type": "學校",
+      "name": "附近的學校",
+      "capacity": 400,
+      "supportedDisasters": 7,
+      "accesibility": true,
+      "address": "臺北市中正區某某路50號",
+      "latitude": 25.061,
+      "longitude": 121.510,
+      "telephone": "02-44444444",
+      "sizeInSquareMeters": 1700
+    }
+  ]
+}
+```
+
+**錯誤回應**:
+```json
+{
+  "success": false,
+  "message": "緯度必須在 -90 到 90 之間"
+}
+```
+
+**HTTP 狀態碼**:
+- `200 OK`: 成功
+- `400 Bad Request`: 無效的座標或半徑參數
+- `500 Internal Server Error`: 伺服器錯誤
+
+---
+
+## 錯誤處理
+
+所有 API 端點在發生錯誤時都會返回一致的錯誤格式：
+
+```json
+{
+  "success": false,
+  "message": "錯誤描述訊息"
+}
+```
+
+常見的 HTTP 狀態碼：
+- `200 OK`: 請求成功
+- `400 Bad Request`: 請求參數無效或缺少必要參數
+- `500 Internal Server Error`: 伺服器內部錯誤
+
+---
+
+## 使用範例
+
+### 範例 1: 搜尋台北車站附近 3 公里的防空避難所
 
 ```bash
-#!/bin/bash
-BASE_URL="https://localhost:5001"
+# 1. 先搜尋附近的所有避難所
+GET /api/Shelter/nearby?latitude=25.047675&longitude=121.517054&radius=3
 
-echo "=== 健康檢查 ==="
-curl -X GET "$BASE_URL/api/health"
+# 2. 再篩選防空避難所
+GET /api/Shelter/by-disaster?type=AirRaid
+```
 
-echo -e "\n\n=== 取得所有避難所 ==="
-curl -X GET "$BASE_URL/api/shelters"
+### 範例 2: 尋找中正區內具備無障礙設施且容量超過 100 人的避難所
 
-echo -e "\n\n=== 取得可用避難所 ==="
-curl -X GET "$BASE_URL/api/evacuation/shelters/available"
+```bash
+# 1. 先取得中正區的避難所
+GET /api/Shelter/by-district?district=中正區
 
-echo -e "\n\n=== 尋找附近避難所 ==="
-curl -X GET "$BASE_URL/api/evacuation/shelters/nearby?latitude=25.0375&longitude=121.5645&radius=5"
+# 2. 在前端或後續處理中篩選容量和無障礙設施
+# (或使用前端過濾，因為 API 不支援多條件組合查詢)
+```
 
-echo -e "\n\n=== 建立新避難所 ==="
-curl -X POST "$BASE_URL/api/shelters" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "測試避難所",
-    "address": "台北市測試路1號",
-    "latitude": 25.04,
-    "longitude": 121.57,
-    "capacity": 100
-  }'
+### 範例 3: 查詢所有支援地震災害的避難所
+
+```bash
+GET /api/Shelter/by-disaster?type=Earthquake
 ```
 
 ---
 
-## 常見問題 (FAQ)
+## 注意事項
 
-### Q1: API 有速率限制嗎？
-A: 目前版本沒有速率限制。未來版本可能會加入。
+1. **資料來源**: 本 API 整合了兩個外部資料來源：
+   - 天然災害避難所 (政府開放資料)
+   - 防空避難所 (政府開放資料)
 
-### Q2: 如何處理 HTTPS 憑證錯誤（開發環境）？
-A: 在開發環境中，如果遇到自簽憑證錯誤，可以：
-- Flutter: 使用 `HttpClient` 並設定 `badCertificateCallback`
-- cURL: 使用 `-k` 或 `--insecure` 參數
+2. **資料更新**: 資料在每次 API 請求時從外部來源即時獲取，確保資料最新。
 
-### Q3: 座標搜尋的準確度如何？
-A: 使用 Haversine 公式計算球面距離，誤差約在 0.5% 以內。
+3. **效能考量**: 
+   - 建議使用適當的篩選條件以減少回傳的資料量
+   - 地理位置搜尋建議半徑不要超過 10 公里以確保回應速度
 
-### Q4: 可以同時更新多個避難所嗎？
-A: 目前版本不支援批次操作。需要逐一呼叫 API。
+4. **座標系統**: 使用 WGS84 座標系統 (與 GPS 相同)
 
-### Q5: 刪除的避難所可以復原嗎？
-A: 目前是硬刪除，無法復原。建議使用 `isActive=false` 代替刪除。
+5. **距離計算**: 使用 Haversine 公式計算地球表面兩點之間的距離
 
----
+6. **災害類型組合**: `supportedDisasters` 欄位使用位元旗標，一個避難所可能支援多種災害類型
 
-## 版本歷史
-
-### v1.0 (2025-11-08)
-- 初始版本
-- 基本 CRUD 操作
-- 地理位置搜尋
-- Swagger UI 整合
-
----
-
-## 支援與回饋
-
-- **GitHub Issues**: https://github.com/Oswin45/TownPass/issues
-- **Email**: support@townpass.taipei
-- **文件**: https://docs.townpass.taipei
-
----
-
-## 授權
-
-本 API 採用與 Town Pass 主專案相同的開源授權。
