@@ -10,15 +10,18 @@ namespace Backend.Services
     {
         private readonly NaturalDisasterShelterService _naturalDisasterService;
         private readonly AirRaidShelterService _airRaidService;
+        private readonly GoogleMapsService _googleMapsService;
         private readonly ILogger<UnifiedShelterService> _logger;
 
         public UnifiedShelterService(
             NaturalDisasterShelterService naturalDisasterService,
             AirRaidShelterService airRaidService,
+            GoogleMapsService googleMapsService,
             ILogger<UnifiedShelterService> logger)
         {
             _naturalDisasterService = naturalDisasterService;
             _airRaidService = airRaidService;
+            _googleMapsService = googleMapsService;
             _logger = logger;
         }
 
@@ -26,8 +29,9 @@ namespace Backend.Services
         /// 獲取所有避難所（包含天然災害和防空避難所）
         /// Get all shelters (includes natural disaster and air raid shelters)
         /// </summary>
+        /// <param name="geocode">是否對沒有座標的避難所進行地理編碼</param>
         /// <returns>統一的避難所列表</returns>
-        public async Task<List<Shelter>> GetAllSheltersAsync()
+        public async Task<List<Shelter>> GetAllSheltersAsync(bool geocode = true)
         {
             try
             {
@@ -49,12 +53,76 @@ namespace Backend.Services
 
                 _logger.LogInformation($"成功獲取 {allShelters.Count} 個避難所 (天然災害: {naturalDisasterShelters.Count}, 防空: {airRaidShelters.Count})");
 
+                // 如果需要進行地理編碼
+                if (geocode)
+                {
+                    await GeocodeSheltersAsync(allShelters);
+                }
+
                 return allShelters;
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "獲取所有避難所時發生錯誤");
                 throw;
+            }
+        }
+
+        /// <summary>
+        /// 對沒有有效座標的避難所進行地理編碼
+        /// </summary>
+        /// <param name="shelters">避難所列表</param>
+        private async Task GeocodeSheltersAsync(List<Shelter> shelters)
+        {
+            try
+            {
+                // 篩選出需要地理編碼的避難所（座標為 0 或無效的）
+                var sheltersNeedingGeocode = shelters
+                    .Where(s => (s.Latitude == 0 && s.Longitude == 0) || 
+                                Math.Abs(s.Latitude) < 0.0001 || 
+                                Math.Abs(s.Longitude) < 0.0001)
+                    .Where(s => !string.IsNullOrEmpty(s.Address))
+                    .ToList();
+
+                if (sheltersNeedingGeocode.Count == 0)
+                {
+                    _logger.LogInformation("所有避難所都已有座標資訊，無需地理編碼");
+                    return;
+                }
+
+                _logger.LogInformation($"開始對 {sheltersNeedingGeocode.Count} 個避難所進行地理編碼...");
+
+                var successCount = 0;
+                var failedCount = 0;
+
+                // 批次處理地理編碼，每批處理 10 個以避免過多   並發請求
+                const int batchSize = 10;
+                for (int i = 0; i < sheltersNeedingGeocode.Count; i += batchSize)
+                {
+                    var batch = sheltersNeedingGeocode.Skip(i).Take(batchSize).ToList();
+                    var tasks = batch.Select(async shelter =>
+                    {
+                        var success = await _googleMapsService.UpdateShelterCoordinatesAsync(shelter);
+                        return success;
+                    });
+
+                    var results = await Task.WhenAll(tasks);
+                    successCount += results.Count(r => r);
+                    failedCount += results.Count(r => !r);
+
+                    // 在批次之間稍作延遲，避免觸發 API 速率限制
+                    if (i + batchSize < sheltersNeedingGeocode.Count)
+                    {
+                        await Task.Delay(100);
+                    }
+                }
+
+                _logger.LogInformation($"地理編碼完成：成功 {successCount} 個，失敗 {failedCount} 個");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "地理編碼過程中發生錯誤");
+                // 不拋出異常，允許繼續使用已有的避難所資料
             }
         }
 

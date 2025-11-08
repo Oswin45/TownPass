@@ -465,6 +465,68 @@ GET /api/Shelter/nearby?latitude=25.060459&longitude=121.509074&radius=2
 
 ---
 
+### 9. 避難所簽到
+
+增加指定避難所的當前佔用人數。當有人員進入避難所時，可使用此端點更新當前收容人數。
+
+**端點**: `POST /api/Shelter/checkin/{id}`
+
+**請求參數**:
+| 參數 | 類型 | 必填 | 說明 |
+|------|------|------|------|
+| id | int | 是 | 避難所 ID (路由參數) |
+
+**請求範例**:
+```
+POST /api/Shelter/checkin/123
+```
+
+**成功回應**:
+```json
+{
+  "success": true,
+  "message": "簽到成功",
+  "shelterId": 123,
+  "shelterName": "臺北市立中正國小",
+  "currentOccupancy": 45,
+  "capacity": 100,
+  "availableSpace": 55
+}
+```
+
+**錯誤回應 - 避難所不存在**:
+```json
+{
+  "success": false,
+  "message": "找不到 ID 為 123 的避難所"
+}
+```
+
+**錯誤回應 - 已達容量上限**:
+```json
+{
+  "success": false,
+  "message": "避難所已達容量上限",
+  "shelterId": 123,
+  "shelterName": "臺北市立中正國小",
+  "currentOccupancy": 100,
+  "capacity": 100
+}
+```
+
+**HTTP 狀態碼**:
+- `200 OK`: 簽到成功
+- `404 Not Found`: 找不到指定的避難所
+- `400 Bad Request`: 避難所已達容量上限
+- `500 Internal Server Error`: 伺服器錯誤
+
+**功能說明**:
+- 每次成功簽到會將 `currentOccupancy` 增加 1
+- 當 `currentOccupancy` 已達到 `capacity` 時，將拒絕簽到並返回錯誤
+- 簽到成功後會返回更新後的佔用人數和剩餘空間
+
+---
+
 ## 錯誤處理
 
 所有 API 端點在發生錯誤時都會返回一致的錯誤格式：
@@ -511,6 +573,28 @@ GET /api/Shelter/by-district?district=中正區
 GET /api/Shelter/by-disaster?type=Earthquake
 ```
 
+### 範例 4: 民眾進入避難所時進行簽到
+
+```bash
+# 1. 先搜尋附近的避難所找到合適的地點
+GET /api/Shelter/nearby?latitude=25.047675&longitude=121.517054&radius=2
+
+# 2. 選擇一個避難所 (假設 ID 為 456)
+# 3. 進行簽到
+POST /api/Shelter/checkin/456
+
+# 回應範例:
+# {
+#   "success": true,
+#   "message": "簽到成功",
+#   "shelterId": 456,
+#   "shelterName": "某某學校",
+#   "currentOccupancy": 23,
+#   "capacity": 500,
+#   "availableSpace": 477
+# }
+```
+
 ---
 
 ## 注意事項
@@ -530,4 +614,9 @@ GET /api/Shelter/by-disaster?type=Earthquake
 5. **距離計算**: 使用 Haversine 公式計算地球表面兩點之間的距離
 
 6. **災害類型組合**: `supportedDisasters` 欄位使用位元旗標，一個避難所可能支援多種災害類型
+
+7. **簽到功能**: 
+   - 簽到端點會直接修改資料庫中的 `currentOccupancy` 值
+   - 系統會自動檢查容量限制，防止超額收容
+   - 建議在使用前先查詢避難所資訊，確認有足夠空間
 

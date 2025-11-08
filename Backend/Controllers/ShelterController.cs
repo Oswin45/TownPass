@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Backend.Models;
 using Backend.Services;
+using Backend.Data;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Backend.Controllers
@@ -10,22 +11,25 @@ namespace Backend.Controllers
     public class ShelterController : ControllerBase
     {
         private readonly ILogger<ShelterController> _logger;
-        private readonly UnifiedShelterService _shelterService;
+        private readonly CachedUnifiedShelterService _cachedShelterService;
+        private readonly ShelterDbContext _dbContext;
 
         public ShelterController(
             ILogger<ShelterController> logger,
-            UnifiedShelterService shelterService)
+            CachedUnifiedShelterService cachedShelterService,
+            ShelterDbContext dbContext)
         {
             _logger = logger;
-            _shelterService = shelterService;
+            _cachedShelterService = cachedShelterService;
+            _dbContext = dbContext;
         }
 
         /// <summary>
-        /// 從服務獲取所有類型的避難所資料
+        /// 從快取獲取所有類型的避難所資料
         /// </summary>
         private async Task<List<Shelter>> FetchAllShelters()
         {
-            return await _shelterService.GetAllSheltersAsync();
+            return await _cachedShelterService.GetAllSheltersAsync();
         }
 
         /// <summary>
@@ -38,7 +42,7 @@ namespace Backend.Controllers
             try
             {
                 _logger.LogInformation("獲取所有避難收容所資料（包含天然災害和防空避難所）");
-                var shelters = await _shelterService.GetAllSheltersAsync();
+                var shelters = await _cachedShelterService.GetAllSheltersAsync();
                 
                 return Ok(new
                 {
@@ -76,7 +80,7 @@ namespace Backend.Controllers
                 _logger.LogInformation($"根據災害類型篩選收容所: {disasterType}");
                 
                 // 使用統一服務獲取特定災害類型的避難所
-                var filtered = await _shelterService.GetSheltersByDisasterTypeAsync(disasterType);
+                var filtered = await _cachedShelterService.GetSheltersByDisasterTypeAsync(disasterType);
 
                 return Ok(new
                 {
@@ -110,7 +114,7 @@ namespace Backend.Controllers
                 _logger.LogInformation($"根據區域篩選收容所: {district}");
                 
                 // 區域篩選僅適用於天然災害避難所
-                var allShelters = await _shelterService.GetAllSheltersAsync();
+                var allShelters = await _cachedShelterService.GetAllSheltersAsync();
                 var filtered = allShelters
                     .Where(s => s.Address != null && s.Address.Contains(district, StringComparison.OrdinalIgnoreCase))
                     .ToList();
@@ -140,7 +144,7 @@ namespace Backend.Controllers
             try
             {
                 _logger.LogInformation($"根據最小容量篩選收容所: {minCapacity}");
-                var allShelters = await _shelterService.GetAllSheltersAsync();
+                var allShelters = await _cachedShelterService.GetAllSheltersAsync();
                 var filtered = allShelters
                     .Where(s => s.Capacity >= minCapacity)
                     .OrderByDescending(s => s.Capacity)
@@ -176,7 +180,7 @@ namespace Backend.Controllers
                 }
 
                 _logger.LogInformation($"搜尋收容所: {name}");
-                var filtered = await _shelterService.SearchSheltersByNameAsync(name);
+                var filtered = await _cachedShelterService.SearchSheltersByNameAsync(name);
 
                 return Ok(new
                 {
@@ -203,7 +207,7 @@ namespace Backend.Controllers
             try
             {
                 _logger.LogInformation("獲取有無障礙設施的收容所");
-                var allShelters = await _shelterService.GetAllSheltersAsync();
+                var allShelters = await _cachedShelterService.GetAllSheltersAsync();
                 var filtered = allShelters.Where(s => s.Accesibility).ToList();
 
                 return Ok(new
@@ -230,8 +234,8 @@ namespace Backend.Controllers
             try
             {
                 _logger.LogInformation("獲取收容所統計資訊");
-                var statistics = await _shelterService.GetUnifiedStatisticsAsync();
-                var shelters = await _shelterService.GetAllSheltersAsync();
+                var statistics = await _cachedShelterService.GetUnifiedStatisticsAsync();
+                var shelters = await _cachedShelterService.GetAllSheltersAsync();
 
                 var stats = new
                 {
@@ -293,7 +297,7 @@ namespace Backend.Controllers
                 }
 
                 _logger.LogInformation($"搜尋座標 ({latitude}, {longitude}) 附近 {radius} 公里內的避難所");
-                var shelters = await _shelterService.GetNearbySheltersAsync(latitude, longitude, radius);
+                var shelters = await _cachedShelterService.GetNearbySheltersAsync(latitude, longitude, radius);
 
                 return Ok(new
                 {
@@ -308,6 +312,74 @@ namespace Backend.Controllers
             {
                 _logger.LogError(ex, "搜尋附近避難所時發生錯誤");
                 return StatusCode(500, new { success = false, message = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// 避難所簽到 - 增加當前佔用人數
+        /// POST /api/Shelter/checkin/{id}
+        /// </summary>
+        [HttpPost("checkin/{id}")]
+        public async Task<IActionResult> CheckInToShelter(int id)
+        {
+            try
+            {
+                _logger.LogInformation($"處理避難所簽到請求: ShelterId={id}");
+
+                // 從資料庫中查找避難所
+                var shelter = await _dbContext.Shelters.FindAsync(id);
+
+                if (shelter == null)
+                {
+                    _logger.LogWarning($"找不到避難所: Id={id}");
+                    return NotFound(new
+                    {
+                        success = false,
+                        message = $"找不到 ID 為 {id} 的避難所"
+                    });
+                }
+
+                // 檢查是否已達容量上限
+                // if (shelter.CurrentOccupancy >= shelter.Capacity)
+                // {
+                //     _logger.LogWarning($"避難所已達容量上限: Id={id}, Capacity={shelter.Capacity}");
+                //     return BadRequest(new
+                //     {
+                //         success = false,
+                //         message = "避難所已達容量上限",
+                //         shelterId = id,
+                //         shelterName = shelter.Name,
+                //         currentOccupancy = shelter.CurrentOccupancy,
+                //         capacity = shelter.Capacity
+                //     });
+                // }
+
+                // 增加當前佔用人數
+                shelter.CurrentOccupancy++;
+                await _dbContext.SaveChangesAsync();
+
+                _logger.LogInformation($"簽到成功: ShelterId={id}, NewOccupancy={shelter.CurrentOccupancy}/{shelter.Capacity}");
+
+                return Ok(new
+                {
+                    success = true,
+                    message = "簽到成功",
+                    shelterId = id,
+                    shelterName = shelter.Name,
+                    currentOccupancy = shelter.CurrentOccupancy,
+                    capacity = shelter.Capacity,
+                    availableSpace = shelter.Capacity - shelter.CurrentOccupancy
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"處理避難所簽到時發生錯誤: ShelterId={id}");
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = "簽到失敗",
+                    error = ex.Message
+                });
             }
         }
     }

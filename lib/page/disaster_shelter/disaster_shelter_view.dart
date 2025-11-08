@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:get/get.dart';
+import 'package:town_pass/gen/assets.gen.dart';
+import 'package:town_pass/util/tp_route.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 import 'dart:async';
 import 'dart:convert';
@@ -12,7 +14,6 @@ import 'package:town_pass/page/disaster_shelter/event_list_view.dart';
 import 'package:town_pass/page/disaster_shelter/shelter_list_view.dart';
 import 'package:town_pass/page/disaster_shelter/upload_event_view.dart';
 import 'package:town_pass/service/notification_service.dart';
-import 'package:town_pass/page/disaster_shelter/test_notification_view.dart';
 import 'package:town_pass/util/tp_app_bar.dart';
 import 'package:town_pass/util/tp_colors.dart';
 import 'package:town_pass/util/tp_text.dart';
@@ -200,11 +201,10 @@ class _DisasterShelterViewState extends State<DisasterShelterView> {
       // try the common asset names (project contains shelter_list_small.json)
       String jsonStr;
       try {
-        jsonStr = await rootBundle
-            .loadString('assets/mock_data/shelter.json');
+        jsonStr = await rootBundle.loadString('assets/mock_data/shelter.json');
       } catch (_) {
-        jsonStr = await rootBundle
-            .loadString('assets/mock_data/shelter_small.json');
+        jsonStr =
+            await rootBundle.loadString('assets/mock_data/shelter_small.json');
       }
 
       final decoded = json.decode(jsonStr);
@@ -738,7 +738,7 @@ class _DisasterShelterViewState extends State<DisasterShelterView> {
             Icons.notifications_active,
             size: 36,
           ),
-          onPressed: () => Get.to(() => const TestNotificationView()),
+          onPressed: () => Get.toNamed(TPRoute.testNotification),
         ),
         Obx(() {
           if (_notificationService.isDisasterMode.value) {
