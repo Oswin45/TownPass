@@ -15,6 +15,35 @@ class DisasterShelterView extends StatefulWidget {
 }
 
 class _DisasterShelterViewState extends State<DisasterShelterView> {
+  static const LatLng _taipei101 = LatLng(25.033964, 121.564468);
+
+  late final CameraPosition _initialCameraPosition;
+  final Set<Marker> _markers = {};
+  GoogleMapController? _mapController;
+
+  @override
+  void initState() {
+    super.initState();
+    _initialCameraPosition = const CameraPosition(
+      target: _taipei101,
+      zoom: 14.5,
+    );
+
+    _markers.add(
+      const Marker(
+        markerId: MarkerId('taipei101'),
+        position: _taipei101,
+        infoWindow: InfoWindow(title: 'Taipei 101'),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _mapController?.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
