@@ -1,15 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:get/get.dart';
+import 'package:town_pass/gen/assets.gen.dart';
+import 'package:town_pass/util/tp_route.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:ui' as ui;
 import 'dart:typed_data';
 import 'package:flutter/services.dart' show rootBundle;
+import 'package:geolocator/geolocator.dart';
 import 'package:town_pass/page/disaster_shelter/event_list_view.dart';
 import 'package:town_pass/page/disaster_shelter/shelter_list_view.dart';
 import 'package:town_pass/page/disaster_shelter/upload_event_view.dart';
+import 'package:town_pass/service/notification_service.dart';
 import 'package:town_pass/util/tp_app_bar.dart';
 import 'package:town_pass/util/tp_colors.dart';
 import 'package:town_pass/util/tp_text.dart';
@@ -24,18 +28,24 @@ class DisasterShelterView extends StatefulWidget {
 class _DisasterShelterViewState extends State<DisasterShelterView> {
   static const LatLng _taipei101 = LatLng(25.033964, 121.564468);
   // Default "current" coordinate requested by user
-  static const LatLng _mockCurrent = LatLng(25.0217, 121.5351);
+  // current device location (nullable until permission/position obtained)
+  LatLng? _currentLocation;
   // Taipei City Hall (台北市政府) - destination for directions
   static const LatLng _taipeiCityHall = LatLng(25.0375, 121.5637);
 
   late final CameraPosition _initialCameraPosition;
   final Set<Marker> _markers = {};
   GoogleMapController? _mapController;
-   List<Shelter> _allShelters = [];
-   Timer? _cameraIdleTimer;
+
+  final NotificationService _notificationService =
+      Get.find<NotificationService>();
+
+  List<Shelter> _allShelters = [];
+  Timer? _cameraIdleTimer;
   final Map<int, BitmapDescriptor> _clusterIconCache = {};
   int _selectedDisasters = 0; // bitmask of selected disaster types
-  int? _capacityFilter; // null=any, 1=small(<100),2=medium(100-1000),3=large(>1000)
+  int?
+      _capacityFilter; // null=any, 1=small(<100),2=medium(100-1000),3=large(>1000)
   int _visibleShelterCount = 0;
   // (no stored currentLatLng needed — markers contain current position)
 
@@ -43,10 +53,8 @@ class _DisasterShelterViewState extends State<DisasterShelterView> {
   void initState() {
     super.initState();
     // Center initial camera on the mocked "current" location per request
-    _initialCameraPosition = const CameraPosition(
-      target: _mockCurrent,
-      zoom: 14.5,
-    );
+    // start with a sensible default (Taipei 101) until we obtain device location
+    _initialCameraPosition = const CameraPosition(target: _taipei101, zoom: 14.5);
 
     _markers.add(
       const Marker(
@@ -55,19 +63,19 @@ class _DisasterShelterViewState extends State<DisasterShelterView> {
         infoWindow: InfoWindow(title: 'Taipei 101'),
       ),
     );
+  // load shelter list from bundled JSON
+  _loadShelters();
 
-    // Add a current location marker at the requested coordinates 台大體育館
-    _markers.add(
-      Marker(
-        markerId: const MarkerId('current_location'),
-        position: _mockCurrent,
-        infoWindow: const InfoWindow(title: '您現在的位置'),
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
-      ),
-    );
-    
-      // load shelter list from bundled JSON
-      _loadShelters();
+  // initialize device location (ask permission and set marker/camera)
+  _initLocation();
+    ever(_notificationService.isDisasterMode, _handleDisasterModeChange);
+  }
+
+  void _handleDisasterModeChange(bool isDisasterMode) {
+    if (isDisasterMode) {
+      final disasterType = _notificationService.currentDisasterType.value;
+      print('進入災害模式，災害類型：$disasterType');
+    }
   }
 
   @override
@@ -80,11 +88,69 @@ class _DisasterShelterViewState extends State<DisasterShelterView> {
     super.dispose();
   }
 
+  // Request permission and obtain device location. Adds a current-location marker
+  // and recenters the map. Errors are surfaced via debug logs and a snackbar.
+  Future<void> _initLocation() async {
+    try {
+      final Position pos = await _determinePosition();
+      final LatLng latlng = LatLng(pos.latitude, pos.longitude);
 
+      setState(() {
+        _currentLocation = latlng;
+        // replace any existing current_location marker
+        _markers.removeWhere((m) => m.markerId == const MarkerId('current_location'));
+        _markers.add(
+          Marker(
+            markerId: const MarkerId('current_location'),
+            position: latlng,
+            infoWindow: const InfoWindow(title: '您現在的位置'),
+            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+          ),
+        );
+      });
+
+      // animate camera to current location if map is ready
+      try {
+        await _mapController?.animateCamera(CameraUpdate.newCameraPosition(CameraPosition(target: latlng, zoom: 16)));
+      } catch (_) {}
+
+      // refresh visible markers (clusters) because map projection may now work
+      _updateVisibleMarkers();
+    } catch (e) {
+      debugPrint('[\u203A_initLocation] failed to get location: $e');
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('無法取得定位')));
+    }
+  }
+
+  // Determine position using Geolocator, requesting permissions when necessary
+  Future<Position> _determinePosition() async {
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      throw Exception('Location services are disabled.');
+    }
+
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        throw Exception('Location permissions are denied');
+      }
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      throw Exception('Location permissions are permanently denied, we cannot request permissions.');
+    }
+
+    return await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+  }
 
   Future<void> _openMapsDirections() async {
-    // Use mocked current location as origin and Taipei City Hall as destination
-    final origin = '${_mockCurrent.latitude},${_mockCurrent.longitude}';
+    // Use device location as origin and Taipei City Hall as destination
+    if (_currentLocation == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('無法取得目前位置')));
+      return;
+    }
+    final origin = '${_currentLocation!.latitude},${_currentLocation!.longitude}';
     final destination = '${_taipeiCityHall.latitude},${_taipeiCityHall.longitude}';
     final url = 'https://www.google.com/maps/dir/?api=1&origin=$origin&destination=$destination&travelmode=walking';
 
@@ -96,8 +162,11 @@ class _DisasterShelterViewState extends State<DisasterShelterView> {
   }
 
   Future<void> _goToCurrentLocation() async {
-    // Use the mocked current location (_mockCurrent) as requested
-    final LatLng latlng = _mockCurrent;
+    if (_currentLocation == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('無法取得目前位置')));
+      return;
+    }
+    final LatLng latlng = _currentLocation!;
 
     // add or update current location marker
     setState(() {
@@ -112,7 +181,7 @@ class _DisasterShelterViewState extends State<DisasterShelterView> {
       );
     });
 
-    // animate camera to the mocked current location
+    // animate camera to the current location
     final CameraUpdate cu = CameraUpdate.newCameraPosition(CameraPosition(target: latlng, zoom: 16));
     try {
       await _mapController?.animateCamera(cu);
@@ -126,9 +195,10 @@ class _DisasterShelterViewState extends State<DisasterShelterView> {
       // try the common asset names (project contains shelter_list_small.json)
       String jsonStr;
       try {
-        jsonStr = await rootBundle.loadString('C:/Users/frank/Desktop/code/TownPass/assets/mock_data/shelter.json');
+        jsonStr = await rootBundle.loadString('assets/mock_data/shelter.json');
       } catch (_) {
-        jsonStr = await rootBundle.loadString('C:/Users/frank/Desktop/code/TownPass/assets/mock_data/shelter.json');
+        jsonStr =
+            await rootBundle.loadString('assets/mock_data/shelter_small.json');
       }
 
       final decoded = json.decode(jsonStr);
@@ -139,20 +209,24 @@ class _DisasterShelterViewState extends State<DisasterShelterView> {
       }
 
       if (rawList != null) {
-        _allShelters = rawList.map((e) {
-          try {
-            return Shelter.fromJson(e as Map<String, dynamic>);
-          } catch (err) {
-            // ignore parse errors for a single record
-            return Shelter.empty();
-          }
-        }).where((s) => s.isValid).toList();
+        _allShelters = rawList
+            .map((e) {
+              try {
+                return Shelter.fromJson(e as Map<String, dynamic>);
+              } catch (err) {
+                // ignore parse errors for a single record
+                return Shelter.empty();
+              }
+            })
+            .where((s) => s.isValid)
+            .toList();
 
         // debug: print parsed coordinates (first 20) before showing on map
         debugPrint('[_loadShelters] parsed ${_allShelters.length} shelters');
         for (var i = 0; i < _allShelters.length && i < 20; i++) {
           final s = _allShelters[i];
-          debugPrint('[shelter $i] ${s.name} -> ${s.latitude}, ${s.longitude} (supported: ${s.supportedDisasters})');
+          debugPrint(
+              '[shelter $i] ${s.name} -> ${s.latitude}, ${s.longitude} (supported: ${s.supportedDisasters})');
         }
       } else {
         debugPrint('[\u203A_loadShelters] no shelter list found in asset');
@@ -179,18 +253,21 @@ class _DisasterShelterViewState extends State<DisasterShelterView> {
       // This ensures filters operate across the entire dataset.
       final visible = _allShelters.where(_matchesFilters).toList();
 
-  // update visible count for UI
-  _visibleShelterCount = visible.length;
+      // update visible count for UI
+      _visibleShelterCount = visible.length;
 
-  // print diagnostics so we can inspect counts
-  debugPrint('[diag] total=$totalShelters passFilter=$passFilter visible=${_visibleShelterCount}');
+      // print diagnostics so we can inspect counts
+      debugPrint(
+          '[diag] total=$totalShelters passFilter=$passFilter visible=${_visibleShelterCount}');
       if (visible.isNotEmpty) {
         for (var i = 0; i < visible.length && i < 10; i++) {
           final s = visible[i];
-          debugPrint('[diag-visible $i] ${s.name} @ ${s.latitude},${s.longitude} capacity=${s.capacity} supported=${s.supportedDisasters}');
+          debugPrint(
+              '[diag-visible $i] ${s.name} @ ${s.latitude},${s.longitude} capacity=${s.capacity} supported=${s.supportedDisasters}');
         }
       } else {
-        debugPrint('[diag] no visible shelters after applying filters and bounds');
+        debugPrint(
+            '[diag] no visible shelters after applying filters and bounds');
       }
 
       // grid-based clustering using screen coordinates
@@ -211,7 +288,10 @@ class _DisasterShelterViewState extends State<DisasterShelterView> {
       }
 
       // prepare new marker set: keep non-shelter markers (current_location, taipei101)
-      final baseMarkers = _markers.where((m) => !(m.markerId.value.startsWith('shelter_') || m.markerId.value.startsWith('cluster_'))).toSet();
+      final baseMarkers = _markers
+          .where((m) => !(m.markerId.value.startsWith('shelter_') ||
+              m.markerId.value.startsWith('cluster_')))
+          .toSet();
 
       final List<Marker> newShelterMarkers = [];
       for (final entry in grid.entries) {
@@ -222,14 +302,19 @@ class _DisasterShelterViewState extends State<DisasterShelterView> {
           final snippetParts = <String>[];
           if (s.address.isNotEmpty) snippetParts.add(s.address);
           if (s.capacity != null) snippetParts.add('容量: ${s.capacity}');
-          final markerId = s.id.isNotEmpty ? 'shelter_${s.id}' : 'shelter_single_${entry.key}';
-          debugPrint('[addMarker] $markerId -> ${latlng.latitude}, ${latlng.longitude}');
+          final markerId = s.id.isNotEmpty
+              ? 'shelter_${s.id}'
+              : 'shelter_single_${entry.key}';
+          debugPrint(
+              '[addMarker] $markerId -> ${latlng.latitude}, ${latlng.longitude}');
           newShelterMarkers.add(
             Marker(
               markerId: MarkerId(markerId),
               position: latlng,
-              infoWindow: InfoWindow(title: s.name, snippet: snippetParts.join(' • ')),
-              icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+              infoWindow:
+                  InfoWindow(title: s.name, snippet: snippetParts.join(' • ')),
+              icon: BitmapDescriptor.defaultMarkerWithHue(
+                  BitmapDescriptor.hueRed),
               zIndex: 1.0,
               onTap: () => _showShelterActions(s),
             ),
@@ -256,7 +341,8 @@ class _DisasterShelterViewState extends State<DisasterShelterView> {
             _clusterIconCache[count] = icon;
           }
 
-          debugPrint('[addCluster] $clusterId -> $count items at ${avgLat}, ${avgLng}');
+          debugPrint(
+              '[addCluster] $clusterId -> $count items at ${avgLat}, ${avgLng}');
           newShelterMarkers.add(
             Marker(
               markerId: MarkerId(clusterId),
@@ -293,16 +379,23 @@ class _DisasterShelterViewState extends State<DisasterShelterView> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              TPText(s.name, style: TPTextStyles.h3SemiBold, color: TPColors.grayscale900),
+              TPText(s.name,
+                  style: TPTextStyles.h3SemiBold, color: TPColors.grayscale900),
               const SizedBox(height: 8),
-              if (s.address.isNotEmpty) TPText(s.address, style: TPTextStyles.caption, color: TPColors.grayscale700),
+              if (s.address.isNotEmpty)
+                TPText(s.address,
+                    style: TPTextStyles.caption, color: TPColors.grayscale700),
               const SizedBox(height: 8),
               Row(
                 children: [
                   if (s.capacity != null)
-                    TPText('容量: ${s.capacity}', style: TPTextStyles.caption, color: TPColors.grayscale600),
+                    TPText('容量: ${s.capacity}',
+                        style: TPTextStyles.caption,
+                        color: TPColors.grayscale600),
                   const Spacer(),
-                  TPText(s.type, style: TPTextStyles.caption, color: TPColors.grayscale600),
+                  TPText(s.type,
+                      style: TPTextStyles.caption,
+                      color: TPColors.grayscale600),
                 ],
               ),
               const SizedBox(height: 12),
@@ -314,8 +407,11 @@ class _DisasterShelterViewState extends State<DisasterShelterView> {
                         Navigator.of(ctx).pop();
                         _openMapsDirectionsTo(LatLng(s.latitude, s.longitude));
                       },
-                      child: const TPText('前往', style: TPTextStyles.bodySemiBold, color: TPColors.white),
-                      style: ElevatedButton.styleFrom(backgroundColor: TPColors.primary500),
+                      child: const TPText('前往',
+                          style: TPTextStyles.bodySemiBold,
+                          color: TPColors.white),
+                      style: ElevatedButton.styleFrom(
+                          backgroundColor: TPColors.primary500),
                     ),
                   ),
                 ],
@@ -328,8 +424,63 @@ class _DisasterShelterViewState extends State<DisasterShelterView> {
     );
   }
 
+  // Show a confirmation dialog when user taps the check-in button
+  void _showCheckInDialog() {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const TPText('確認報到'),
+          content: const TPText('是否已安全抵達避難所？'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(ctx).pop();
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('尚未完成')));
+              },
+              child: const TPText('尚未完成', style: TPTextStyles.bodySemiBold, color: TPColors.primary500),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(ctx).pop();
+                // TODO: hook into backend/reporting if needed
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('已記錄：安全抵達')));
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: TPColors.primary500),
+              child: const TPText('安全抵達', style: TPTextStyles.bodySemiBold, color: TPColors.white),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // Show an informative dialog when a disaster-only feature is tapped while
+  // not in disaster mode.
+  void _showNotDisasterDialog() {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const TPText('功能暫停'),
+          content: const TPText('目前不是災難時刻，該功能暫時無法使用。'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const TPText('知道了', style: TPTextStyles.bodySemiBold, color: TPColors.primary500),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Future<void> _openMapsDirectionsTo(LatLng destination) async {
-    final origin = '${_mockCurrent.latitude},${_mockCurrent.longitude}';
+    if (_currentLocation == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('無法取得目前位置')));
+      return;
+    }
+    final origin = '${_currentLocation!.latitude},${_currentLocation!.longitude}';
     final dest = '${destination.latitude},${destination.longitude}';
     final url = 'https://www.google.com/maps/dir/?api=1&origin=$origin&destination=$dest&travelmode=walking';
     try {
@@ -350,17 +501,20 @@ class _DisasterShelterViewState extends State<DisasterShelterView> {
     canvas.drawCircle(Offset(radius, radius), radius, paint);
 
     final textPainter = TextPainter(textDirection: TextDirection.ltr);
-    final textStyle = TextStyle(color: Colors.white, fontSize: 40, fontWeight: FontWeight.bold);
+    final textStyle = TextStyle(
+        color: Colors.white, fontSize: 40, fontWeight: FontWeight.bold);
     textPainter.text = TextSpan(text: count.toString(), style: textStyle);
     textPainter.layout();
-    textPainter.paint(canvas, Offset((size - textPainter.width) / 2, (size - textPainter.height) / 2));
+    textPainter.paint(
+        canvas,
+        Offset(
+            (size - textPainter.width) / 2, (size - textPainter.height) / 2));
 
     final ui.Image image = await recorder.endRecording().toImage(size, size);
-    final ByteData? bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+    final ByteData? bytes =
+        await image.toByteData(format: ui.ImageByteFormat.png);
     return BitmapDescriptor.fromBytes(bytes!.buffer.asUint8List());
   }
-
-
 
   bool _matchesFilters(Shelter s) {
     // disaster filter: if none selected -> pass
@@ -393,20 +547,28 @@ class _DisasterShelterViewState extends State<DisasterShelterView> {
 
     // capacity
     if (_capacityFilter != null) {
-      if (_capacityFilter == 1) chips.add(_smallChip('小型 (<100)'));
-      if (_capacityFilter == 2) chips.add(_smallChip('中型 (100-1000)'));
-      if (_capacityFilter == 3) chips.add(_smallChip('大型 (>1000)'));
+      if (_capacityFilter == 1) chips.add(_smallChip('小型 (可容納人數 <100)'));
+      if (_capacityFilter == 2) chips.add(_smallChip('中型 (可容納人數 100-1000)'));
+      if (_capacityFilter == 3) chips.add(_smallChip('大型 (可容納人數>1000)'));
     }
 
-    if (chips.isEmpty) return [TPText('未選擇篩選', style: TPTextStyles.caption, color: TPColors.grayscale600)];
+    if (chips.isEmpty)
+      return [
+        TPText('未選擇篩選',
+            style: TPTextStyles.caption, color: TPColors.grayscale600)
+      ];
     return chips;
   }
 
   Widget _smallChip(String label) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(color: TPColors.primary50, borderRadius: BorderRadius.circular(20), border: Border.all(color: TPColors.primary100)),
-      child: TPText(label, style: TPTextStyles.caption, color: TPColors.primary700),
+      decoration: BoxDecoration(
+          color: TPColors.primary50,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: TPColors.primary100)),
+      child: TPText(label,
+          style: TPTextStyles.caption, color: TPColors.primary700),
     );
   }
 
@@ -420,44 +582,91 @@ class _DisasterShelterViewState extends State<DisasterShelterView> {
         int? tempCapacity = _capacityFilter;
         return StatefulBuilder(builder: (c, setS) {
           return Padding(
-            padding: MediaQuery.of(ctx).viewInsets.add(const EdgeInsets.all(16)),
+            padding:
+                MediaQuery.of(ctx).viewInsets.add(const EdgeInsets.all(16)),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                TPText('篩選避難所', style: TPTextStyles.h3SemiBold, color: TPColors.grayscale900),
+                TPText('篩選避難所',
+                    style: TPTextStyles.h3SemiBold,
+                    color: TPColors.grayscale900),
                 const SizedBox(height: 12),
-                TPText('災難類型', style: TPTextStyles.caption, color: TPColors.grayscale700),
+                TPText('災難類型',
+                    style: TPTextStyles.caption, color: TPColors.grayscale700),
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 8,
                   children: [
-                    CheckboxListTile(value: (tempDisasters & 1) != 0, onChanged: (v) => setS(() => tempDisasters = v! ? (tempDisasters | 1) : (tempDisasters & ~1)), title: const TPText('淹水')),
-                    CheckboxListTile(value: (tempDisasters & 2) != 0, onChanged: (v) => setS(() => tempDisasters = v! ? (tempDisasters | 2) : (tempDisasters & ~2)), title: const TPText('地震')),
-                    CheckboxListTile(value: (tempDisasters & 4) != 0, onChanged: (v) => setS(() => tempDisasters = v! ? (tempDisasters | 4) : (tempDisasters & ~4)), title: const TPText('土石流')),
-                    CheckboxListTile(value: (tempDisasters & 8) != 0, onChanged: (v) => setS(() => tempDisasters = v! ? (tempDisasters | 8) : (tempDisasters & ~8)), title: const TPText('海嘯')),
-                    CheckboxListTile(value: (tempDisasters & 16) != 0, onChanged: (v) => setS(() => tempDisasters = v! ? (tempDisasters | 16) : (tempDisasters & ~16)), title: const TPText('防空')),
+                    CheckboxListTile(
+                        value: (tempDisasters & 1) != 0,
+                        onChanged: (v) => setS(() => tempDisasters =
+                            v! ? (tempDisasters | 1) : (tempDisasters & ~1)),
+                        title: const TPText('淹水')),
+                    CheckboxListTile(
+                        value: (tempDisasters & 2) != 0,
+                        onChanged: (v) => setS(() => tempDisasters =
+                            v! ? (tempDisasters | 2) : (tempDisasters & ~2)),
+                        title: const TPText('地震')),
+                    CheckboxListTile(
+                        value: (tempDisasters & 4) != 0,
+                        onChanged: (v) => setS(() => tempDisasters =
+                            v! ? (tempDisasters | 4) : (tempDisasters & ~4)),
+                        title: const TPText('土石流')),
+                    CheckboxListTile(
+                        value: (tempDisasters & 8) != 0,
+                        onChanged: (v) => setS(() => tempDisasters =
+                            v! ? (tempDisasters | 8) : (tempDisasters & ~8)),
+                        title: const TPText('海嘯')),
+                    CheckboxListTile(
+                        value: (tempDisasters & 16) != 0,
+                        onChanged: (v) => setS(() => tempDisasters =
+                            v! ? (tempDisasters | 16) : (tempDisasters & ~16)),
+                        title: const TPText('防空')),
                   ],
                 ),
                 const SizedBox(height: 8),
-                TPText('容量', style: TPTextStyles.caption, color: TPColors.grayscale700),
-                RadioListTile<int?>(value: null, groupValue: tempCapacity, title: const TPText('不限'), onChanged: (v) => setS(() => tempCapacity = v)),
-                RadioListTile<int?>(value: 1, groupValue: tempCapacity, title: const TPText('小型 (<100)'), onChanged: (v) => setS(() => tempCapacity = v)),
-                RadioListTile<int?>(value: 2, groupValue: tempCapacity, title: const TPText('中型 (100-1000)'), onChanged: (v) => setS(() => tempCapacity = v)),
-                RadioListTile<int?>(value: 3, groupValue: tempCapacity, title: const TPText('大型 (>1000)'), onChanged: (v) => setS(() => tempCapacity = v)),
+                TPText('容量',
+                    style: TPTextStyles.caption, color: TPColors.grayscale700),
+                RadioListTile<int?>(
+                    value: null,
+                    groupValue: tempCapacity,
+                    title: const TPText('不限'),
+                    onChanged: (v) => setS(() => tempCapacity = v)),
+                RadioListTile<int?>(
+                    value: 1,
+                    groupValue: tempCapacity,
+                    title: const TPText('小型 (<100)'),
+                    onChanged: (v) => setS(() => tempCapacity = v)),
+                RadioListTile<int?>(
+                    value: 2,
+                    groupValue: tempCapacity,
+                    title: const TPText('中型 (100-1000)'),
+                    onChanged: (v) => setS(() => tempCapacity = v)),
+                RadioListTile<int?>(
+                    value: 3,
+                    groupValue: tempCapacity,
+                    title: const TPText('大型 (>1000)'),
+                    onChanged: (v) => setS(() => tempCapacity = v)),
                 const SizedBox(height: 12),
                 Row(
                   children: [
-                    TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const TPText('取消')),
+                    TextButton(
+                        onPressed: () => Navigator.of(ctx).pop(),
+                        child: const TPText('取消')),
                     const Spacer(),
-                    TextButton(onPressed: () {
-                      setState(() {
-                        _selectedDisasters = tempDisasters;
-                        _capacityFilter = tempCapacity;
-                      });
-                      _updateVisibleMarkers();
-                      Navigator.of(ctx).pop();
-                    }, child: const TPText('套用', style: TPTextStyles.bodySemiBold, color: TPColors.primary500)),
+                    TextButton(
+                        onPressed: () {
+                          setState(() {
+                            _selectedDisasters = tempDisasters;
+                            _capacityFilter = tempCapacity;
+                          });
+                          _updateVisibleMarkers();
+                          Navigator.of(ctx).pop();
+                        },
+                        child: const TPText('套用',
+                            style: TPTextStyles.bodySemiBold,
+                            color: TPColors.primary500)),
                   ],
                 ),
               ],
@@ -472,9 +681,41 @@ class _DisasterShelterViewState extends State<DisasterShelterView> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: TPColors.white,
-      appBar: const TPAppBar(
-        title: '避難導航',
-      ),
+      appBar: TPAppBar(title: '避難導航', actions: [
+        // 測試通知按鈕（開發階段使用）
+        IconButton(
+          icon: const Icon(
+            Icons.notifications_active,
+            size: 36,
+          ),
+          onPressed: () => Get.toNamed(TPRoute.testNotification),
+        ),
+        Obx(() {
+          if (_notificationService.isDisasterMode.value) {
+            return Container(
+              margin: const EdgeInsets.only(right: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: TPColors.red500,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.warning_amber_rounded,
+                      color: Colors.white, size: 16),
+                  SizedBox(width: 4),
+                  TPText(
+                    '災害模式',
+                    style: TPTextStyles.caption,
+                    color: Colors.white,
+                  ),
+                ],
+              ),
+            );
+          }
+          return const SizedBox.shrink();
+        }),
+      ]),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -486,7 +727,10 @@ class _DisasterShelterViewState extends State<DisasterShelterView> {
                 color: TPColors.white,
                 borderRadius: BorderRadius.circular(12),
                 boxShadow: [
-                  BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8, offset: const Offset(0, 4)),
+                  BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4)),
                 ],
               ),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -496,13 +740,21 @@ class _DisasterShelterViewState extends State<DisasterShelterView> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        TPText('您目前最近的避難所：台北市政府', style: TPTextStyles.h3SemiBold, color: TPColors.grayscale900),
+                        TPText('您目前最近的避難所：台北市政府',
+                            style: TPTextStyles.h3SemiBold,
+                            color: TPColors.grayscale900),
                         const SizedBox(height: 6),
                         Row(
                           children: [
-                            const Icon(Icons.place, size: 16, color: TPColors.grayscale600),
+                            const Icon(Icons.place,
+                                size: 16, color: TPColors.grayscale600),
                             const SizedBox(width: 6),
-                            TPText('您目前的經緯度：${_mockCurrent.latitude.toStringAsFixed(6)}, ${_mockCurrent.longitude.toStringAsFixed(6)}', style: TPTextStyles.caption, color: TPColors.grayscale600),
+              TPText(
+                _currentLocation != null
+                  ? '您目前的經緯度：${_currentLocation!.latitude.toStringAsFixed(6)}, ${_currentLocation!.longitude.toStringAsFixed(6)}'
+                  : '您目前的經緯度：定位中...',
+                style: TPTextStyles.caption,
+                color: TPColors.grayscale600),
                           ],
                         ),
                       ],
@@ -512,96 +764,111 @@ class _DisasterShelterViewState extends State<DisasterShelterView> {
                   ElevatedButton.icon(
                     onPressed: _openMapsDirections,
                     icon: const Icon(Icons.directions_walk),
-                    label: const TPText('前往', style: TPTextStyles.bodySemiBold, color: TPColors.white),
+                    label: const TPText('前往',
+                        style: TPTextStyles.bodySemiBold,
+                        color: TPColors.white),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: TPColors.primary500,
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 12),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10)),
                     ),
                   ),
                 ],
               ),
             ),
 
-
-          const SizedBox(height: 12),
-          // Compact filter row: open dropdown sheet and show selected tags (two rows)
-          Row(
-            children: [
-              ElevatedButton.icon(
-                onPressed: _openFilterSheet,
-                icon: const Icon(Icons.filter_list),
-                label: const TPText('篩選', style: TPTextStyles.bodySemiBold),
-                style: ElevatedButton.styleFrom(backgroundColor: TPColors.primary500),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: _buildSelectedFilterChips(),
+            const SizedBox(height: 12),
+            // Compact filter row: open dropdown sheet and show selected tags (two rows)
+            Row(
+              children: [
+                ElevatedButton.icon(
+                  onPressed: _openFilterSheet,
+                  icon: const Icon(Icons.filter_list),
+                  label: const TPText('篩選', style: TPTextStyles.bodySemiBold),
+                  style: ElevatedButton.styleFrom(
+                      backgroundColor: TPColors.primary500),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  TPText('符合: $_visibleShelterCount 筆', style: TPTextStyles.caption, color: TPColors.grayscale700),
-                  TextButton(
-                    onPressed: () {
-                      setState(() {
-                        _selectedDisasters = 0;
-                        _capacityFilter = null;
-                      });
-                      _updateVisibleMarkers();
-                    },
-                    child: const TPText('清除', style: TPTextStyles.caption, color: TPColors.primary500),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: _buildSelectedFilterChips(),
                   ),
-                ],
-              ),
-            ],
-          ),
+                ),
+                const SizedBox(width: 12),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    TPText('符合: $_visibleShelterCount 筆',
+                        style: TPTextStyles.caption,
+                        color: TPColors.grayscale700),
+                    TextButton(
+                      onPressed: () {
+                        setState(() {
+                          _selectedDisasters = 0;
+                          _capacityFilter = null;
+                        });
+                        _updateVisibleMarkers();
+                      },
+                      child: const TPText('清除',
+                          style: TPTextStyles.caption,
+                          color: TPColors.primary500),
+                    ),
+                  ],
+                ),
+              ],
+            ),
             // Map area (responsive height, allows zooming). Not strictly 1:1 — nicer layout.
             SizedBox(
-              height: MediaQuery.of(context).size.width * 1.2, // 60% of screen width
+              height: MediaQuery.of(context).size.width *
+                  1.2, // 60% of screen width
               child: Stack(
                 children: [
                   // map with rounded corners and subtle shadow
                   Container(
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(12),
-                      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 10, offset: const Offset(0, 6))],
+                      boxShadow: [
+                        BoxShadow(
+                            color: Colors.black.withOpacity(0.06),
+                            blurRadius: 10,
+                            offset: const Offset(0, 6))
+                      ],
                     ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: GoogleMap(
-                          initialCameraPosition: _initialCameraPosition,
-                          onMapCreated: (controller) {
-                            _mapController = controller;
-                            // update visible markers once the map is ready
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: GoogleMap(
+                        initialCameraPosition: _initialCameraPosition,
+                        onMapCreated: (controller) {
+                          _mapController = controller;
+                          // update visible markers once the map is ready
+                          _updateVisibleMarkers();
+                        },
+                        onCameraMove: (pos) {
+                          // cancel any pending idle timers while the camera is moving
+                          _cameraIdleTimer?.cancel();
+                        },
+                        onCameraIdle: () {
+                          // small debounce: wait briefly before updating markers
+                          _cameraIdleTimer?.cancel();
+                          _cameraIdleTimer =
+                              Timer(const Duration(milliseconds: 300), () {
                             _updateVisibleMarkers();
-                          },
-                          onCameraMove: (pos) {
-                            // cancel any pending idle timers while the camera is moving
-                            _cameraIdleTimer?.cancel();
-                          },
-                          onCameraIdle: () {
-                            // small debounce: wait briefly before updating markers
-                            _cameraIdleTimer?.cancel();
-                            _cameraIdleTimer = Timer(const Duration(milliseconds: 300), () {
-                              _updateVisibleMarkers();
-                            });
-                          },
-                          markers: _markers,
-                          myLocationEnabled: true,
-                          myLocationButtonEnabled: true,
-                          zoomControlsEnabled: false,
-                          zoomGesturesEnabled: true,
-                          scrollGesturesEnabled: true,
-                          tiltGesturesEnabled: false,
-                          rotateGesturesEnabled: false,
-                        ),
+                          });
+                        },
+                        markers: _markers,
+                        myLocationEnabled: true,
+                        myLocationButtonEnabled: true,
+                        zoomControlsEnabled: false,
+                        zoomGesturesEnabled: true,
+                        scrollGesturesEnabled: true,
+                        tiltGesturesEnabled: false,
+                        rotateGesturesEnabled: false,
                       ),
+                    ),
                   ),
 
                   // Camera button (通報災情) and locate button inside the map, top-right
@@ -610,22 +877,31 @@ class _DisasterShelterViewState extends State<DisasterShelterView> {
                     right: 12,
                     child: Column(
                       children: [
-                        // camera
-                        GestureDetector(
-                          onTap: () => Get.to(() => const UploadEventView()),
-                          child: Container(
-                            width: 52,
-                            height: 52,
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              shape: BoxShape.circle,
-                              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.12), blurRadius: 8, offset: const Offset(0, 4))],
+                        // camera (disabled when not in disaster mode)
+                        Obx(() {
+                          final enabled = _notificationService.isDisasterMode.value;
+                          return GestureDetector(
+                            onTap: enabled ? () => Get.to(() => const UploadEventView()) : _showNotDisasterDialog,
+                            child: Container(
+                              width: 52,
+                              height: 52,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                      color: Colors.black.withOpacity(enabled ? 0.12 : 0.04),
+                                      blurRadius: enabled ? 8 : 2,
+                                      offset: const Offset(0, 4))
+                                ],
+                              ),
+                              child: Center(
+                                child: Icon(Icons.camera_alt,
+                                    color: enabled ? TPColors.primary500 : Colors.grey.shade400, size: 24),
+                              ),
                             ),
-                            child: Center(
-                              child: Icon(Icons.camera_alt, color: TPColors.primary500, size: 24),
-                            ),
-                          ),
-                        ),
+                          );
+                        }),
                         const SizedBox(height: 10),
                         // locate (go to mocked current position)
                         GestureDetector(
@@ -636,10 +912,44 @@ class _DisasterShelterViewState extends State<DisasterShelterView> {
                             decoration: BoxDecoration(
                               color: Colors.white,
                               shape: BoxShape.circle,
-                              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 6, offset: const Offset(0, 3))],
+                              boxShadow: [
+                                BoxShadow(
+                                    color: Colors.black.withOpacity(0.08),
+                                    blurRadius: 6,
+                                    offset: const Offset(0, 3))
+                              ],
                             ),
                             child: Center(
-                              child: Icon(Icons.my_location, color: TPColors.primary500, size: 20),
+                              child: Icon(Icons.my_location,
+                                  color: TPColors.primary500, size: 20),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Floating check-in button fixed to bottom of map area
+                  Positioned(
+                    left: 16,
+                    right: 16,
+                    bottom: 16,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            onPressed: _showCheckInDialog,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: TPColors.primary500,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: const [
+                                TPText('已安全抵達避難所', style: TPTextStyles.bodySemiBold, color: TPColors.white),
+                              ],
                             ),
                           ),
                         ),
@@ -656,27 +966,34 @@ class _DisasterShelterViewState extends State<DisasterShelterView> {
             Row(
               children: [
                 Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () => Get.to(() => const EventListView()),
-                    icon: const Icon(Icons.event_available),
-                    label: const TPText('災害事件列表', style: TPTextStyles.bodySemiBold, color: TPColors.white),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: TPColors.primary500,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    ),
-                  ),
+                  child: Obx(() {
+                    final enabled = _notificationService.isDisasterMode.value;
+                    return ElevatedButton.icon(
+                      onPressed: enabled ? () => Get.to(() => const EventListView()) : _showNotDisasterDialog,
+                      icon: Icon(Icons.event_available, color: enabled ? Colors.white : Colors.grey.shade500),
+                      label: TPText('災害事件列表', style: TPTextStyles.bodySemiBold, color: enabled ? TPColors.white : Colors.grey.shade500),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: enabled ? TPColors.primary500 : Colors.grey.shade300,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                    );
+                  }),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: () => Get.to(() => const ShelterListView()),
-                    icon: const Icon(Icons.home_outlined, color: TPColors.primary500),
-                    label: const TPText('避難收容處所', style: TPTextStyles.bodySemiBold, color: TPColors.primary500),
+                    icon: const Icon(Icons.home_outlined,
+                        color: TPColors.primary500),
+                    label: const TPText('避難收容處所',
+                        style: TPTextStyles.bodySemiBold,
+                        color: TPColors.primary500),
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       side: const BorderSide(color: TPColors.primary500),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10)),
                       backgroundColor: TPColors.white,
                     ),
                   ),
@@ -756,26 +1073,42 @@ class Shelter {
       return false;
     }
 
-    final lat = parseDouble(json['latitude'] ?? json['lat'] ?? json['y'] ?? json['latitude_deg'] ?? 0);
-    final lng = parseDouble(json['longitude'] ?? json['lng'] ?? json['x'] ?? json['longitude_deg'] ?? 0);
+    final lat = parseDouble(json['latitude'] ??
+        json['lat'] ??
+        json['y'] ??
+        json['latitude_deg'] ??
+        0);
+    final lng = parseDouble(json['longitude'] ??
+        json['lng'] ??
+        json['x'] ??
+        json['longitude_deg'] ??
+        0);
 
-    final supported = parseInt(json['supportedDisasters'] ?? json['supported_disasters'] ?? json['supported'] ?? 0);
+    final supported = parseInt(json['supportedDisasters'] ??
+        json['supported_disasters'] ??
+        json['supported'] ??
+        0);
 
     // accessibility key may be misspelled in some data sources as 'accesibility'
-    final accessVal = json.containsKey('accessibility') ? json['accessibility'] : json['accesibility'];
+    final accessVal = json.containsKey('accessibility')
+        ? json['accessibility']
+        : json['accesibility'];
 
     return Shelter(
       id: json['id']?.toString() ?? '',
       type: json['type']?.toString() ?? '',
       name: json['name']?.toString() ?? json['place']?.toString() ?? '避難所',
-      capacity: json.containsKey('capacity') ? parseInt(json['capacity']) : null,
+      capacity:
+          json.containsKey('capacity') ? parseInt(json['capacity']) : null,
       supportedDisasters: supported,
       accessibility: parseBool(accessVal),
       address: json['address']?.toString() ?? '',
       latitude: lat,
       longitude: lng,
       telephone: json['telephone']?.toString() ?? json['tel']?.toString() ?? '',
-      sizeInSquareMeters: json.containsKey('sizeInSquareMeters') ? parseDouble(json['sizeInSquareMeters']) : (json.containsKey('size') ? parseDouble(json['size']) : null),
+      sizeInSquareMeters: json.containsKey('sizeInSquareMeters')
+          ? parseDouble(json['sizeInSquareMeters'])
+          : (json.containsKey('size') ? parseDouble(json['size']) : null),
     );
   }
 
