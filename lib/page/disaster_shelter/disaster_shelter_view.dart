@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:get/get.dart';
 import 'package:town_pass/gen/assets.gen.dart';
+import 'package:town_pass/util/tp_route.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 import 'dart:async';
 import 'dart:convert';
@@ -13,7 +13,6 @@ import 'package:town_pass/page/disaster_shelter/event_list_view.dart';
 import 'package:town_pass/page/disaster_shelter/shelter_list_view.dart';
 import 'package:town_pass/page/disaster_shelter/upload_event_view.dart';
 import 'package:town_pass/service/notification_service.dart';
-import 'package:town_pass/page/disaster_shelter/test_notification_view.dart';
 import 'package:town_pass/util/tp_app_bar.dart';
 import 'package:town_pass/util/tp_colors.dart';
 import 'package:town_pass/util/tp_text.dart';
@@ -146,11 +145,10 @@ class _DisasterShelterViewState extends State<DisasterShelterView> {
       // try the common asset names (project contains shelter_list_small.json)
       String jsonStr;
       try {
-        jsonStr = await rootBundle
-            .loadString('assets/mock_data/shelter.json');
+        jsonStr = await rootBundle.loadString('assets/mock_data/shelter.json');
       } catch (_) {
-        jsonStr = await rootBundle
-            .loadString('assets/mock_data/shelter_small.json');
+        jsonStr =
+            await rootBundle.loadString('assets/mock_data/shelter_small.json');
       }
 
       final decoded = json.decode(jsonStr);
@@ -587,7 +585,7 @@ class _DisasterShelterViewState extends State<DisasterShelterView> {
             Icons.notifications_active,
             size: 36,
           ),
-          onPressed: () => Get.to(() => const TestNotificationView()),
+          onPressed: () => Get.toNamed(TPRoute.testNotification),
         ),
         Obx(() {
           if (_notificationService.isDisasterMode.value) {
@@ -769,36 +767,68 @@ class _DisasterShelterViewState extends State<DisasterShelterView> {
                   ),
 
                   // Camera button (通報災情) and locate button inside the map, top-right
-                  Positioned(
-                    top: 12,
-                    right: 12,
-                    child: Column(
-                      children: [
-                        // camera
-                        GestureDetector(
-                          onTap: () => Get.to(() => const UploadEventView()),
-                          child: Container(
-                            width: 52,
-                            height: 52,
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                    color: Colors.black.withOpacity(0.12),
-                                    blurRadius: 8,
-                                    offset: const Offset(0, 4))
-                              ],
+                  Obx(() {
+                    if (_notificationService.isDisasterMode.value) {
+                      return Positioned(
+                        top: 12,
+                        right: 12,
+                        child: Column(
+                          children: [
+                            // camera
+                            GestureDetector(
+                              onTap: () =>
+                                  Get.to(() => const UploadEventView()),
+                              child: Container(
+                                width: 52,
+                                height: 52,
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  shape: BoxShape.circle,
+                                  boxShadow: [
+                                    BoxShadow(
+                                        color: Colors.black.withOpacity(0.12),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 4))
+                                  ],
+                                ),
+                                child: Center(
+                                  child: Icon(Icons.camera_alt,
+                                      color: TPColors.primary500, size: 24),
+                                ),
+                              ),
                             ),
-                            child: Center(
-                              child: Icon(Icons.camera_alt,
-                                  color: TPColors.primary500, size: 24),
+                            const SizedBox(height: 10),
+                            // locate
+                            GestureDetector(
+                              onTap: _goToCurrentLocation,
+                              child: Container(
+                                width: 44,
+                                height: 44,
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  shape: BoxShape.circle,
+                                  boxShadow: [
+                                    BoxShadow(
+                                        color: Colors.black.withOpacity(0.08),
+                                        blurRadius: 6,
+                                        offset: const Offset(0, 3))
+                                  ],
+                                ),
+                                child: Center(
+                                  child: Icon(Icons.my_location,
+                                      color: TPColors.primary500, size: 20),
+                                ),
+                              ),
                             ),
-                          ),
+                          ],
                         ),
-                        const SizedBox(height: 10),
-                        // locate (go to mocked current position)
-                        GestureDetector(
+                      );
+                    } else {
+                      // 一般模式只顯示定位按鈕
+                      return Positioned(
+                        top: 12,
+                        right: 12,
+                        child: GestureDetector(
                           onTap: _goToCurrentLocation,
                           child: Container(
                             width: 44,
@@ -819,9 +849,9 @@ class _DisasterShelterViewState extends State<DisasterShelterView> {
                             ),
                           ),
                         ),
-                      ],
-                    ),
-                  ),
+                      );
+                    }
+                  }),
                 ],
               ),
             ),
@@ -829,43 +859,62 @@ class _DisasterShelterViewState extends State<DisasterShelterView> {
             const SizedBox(height: 16),
 
             // Two side-by-side buttons below the map (primary + outline)
-            Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () => Get.to(() => const EventListView()),
-                    icon: const Icon(Icons.event_available),
-                    label: const TPText('災害事件列表',
-                        style: TPTextStyles.bodySemiBold,
-                        color: TPColors.white),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: TPColors.primary500,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10)),
+            Obx(() {
+              if (_notificationService.isDisasterMode.value) {
+                // 災難模式：顯示兩個按鈕
+                return Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () => Get.to(() => const EventListView()),
+                        icon: const Icon(Icons.event_available),
+                        label: const TPText('災害事件列表',
+                            style: TPTextStyles.bodySemiBold,
+                            color: TPColors.white),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: TPColors.primary500,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10)),
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () => Get.to(() => const ShelterListView()),
-                    icon: const Icon(Icons.home_outlined,
-                        color: TPColors.primary500),
-                    label: const TPText('避難收容處所',
-                        style: TPTextStyles.bodySemiBold,
-                        color: TPColors.primary500),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      side: const BorderSide(color: TPColors.primary500),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10)),
-                      backgroundColor: TPColors.white,
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => Get.to(() => const ShelterListView()),
+                        icon: const Icon(Icons.home_outlined,
+                            color: TPColors.primary500),
+                        label: const TPText('避難收容處所',
+                            style: TPTextStyles.bodySemiBold,
+                            color: TPColors.primary500),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          side: const BorderSide(color: TPColors.primary500),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10)),
+                          backgroundColor: TPColors.white,
+                        ),
+                      ),
                     ),
+                  ],
+                );
+              } else {
+                // 一般模式：只顯示避難收容處所按鈕（佔據整個 row）
+                return ElevatedButton.icon(
+                  onPressed: () => Get.to(() => const ShelterListView()),
+                  icon: const Icon(Icons.home_outlined),
+                  label: const TPText('避難收容處所',
+                      style: TPTextStyles.bodySemiBold, color: TPColors.white),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: TPColors.primary500,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
                   ),
-                ),
-              ],
-            ),
+                );
+              }
+            }),
 
             const SizedBox(height: 16),
 

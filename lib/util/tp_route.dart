@@ -35,6 +35,7 @@ import 'package:town_pass/page/suspend_account/suspend_account_controller.dart';
 import 'package:town_pass/page/suspend_account/suspend_account_view.dart';
 import 'package:town_pass/page/disaster_shelter/disaster_shelter_view.dart';
 import 'package:town_pass/util/tp_web_view.dart';
+import 'package:town_pass/page/disaster_shelter/test_notification_view.dart';
 
 abstract class TPRoute {
   static const String main = '/';
@@ -61,6 +62,7 @@ abstract class TPRoute {
   static const String suspendAccount = '/suspend_account';
   static const String webView = '/web_view';
   static const String disasterShelter = '/disaster_shelter';
+  static const String testNotification = '/test_notification';
 
   static final List<GetPage> page = [
     GetPage(
@@ -190,7 +192,11 @@ abstract class TPRoute {
     GetPage(
       name: disasterShelter,
       page: () => const DisasterShelterView(),
-    )
+    ),
+    GetPage(
+      name: testNotification,
+      page: () => const TestNotificationView(),
+    ),
   ];
 
   static Future openUri({required String uri, String? forceTitle}) async {
