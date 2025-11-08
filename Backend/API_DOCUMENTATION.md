@@ -20,9 +20,11 @@
 
 ```json
 {
+  "id": 0,                
   "type": "string",              // 避難所類型 (NaturalDisaster 或 AirRaid)
   "name": "string",              // 避難所名稱
   "capacity": 0,                 // 容納人數
+  "currentOccupancy": 0,         // 目前收容人數
   "supportedDisasters": 0,       // 支援的災害類型 (位元旗標)
   "accesibility": false,         // 是否有無障礙設施
   "address": "string",           // 地址
@@ -63,9 +65,11 @@
   "count": 1234,
   "data": [
     {
+      "id": "1",
       "type": "學校",
       "name": "臺北市立中正國小",
       "capacity": 500,
+      "currentOccupancy": 0,
       "supportedDisasters": 7,
       "accesibility": true,
       "address": "臺北市中正區某某路123號",
@@ -116,9 +120,11 @@ GET /api/Shelter/by-disaster?type=Flooding
   "count": 567,
   "data": [
     {
+      "id": "2",
       "type": "學校",
       "name": "某某國小",
       "capacity": 300,
+      "currentOccupancy": 0,
       "supportedDisasters": 1,
       "accesibility": false,
       "address": "臺北市某某區某某路456號",
@@ -269,9 +275,11 @@ GET /api/Shelter/search?name=學校
   "count": 234,
   "data": [
     {
+      "id": "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
       "type": "學校",
       "name": "臺北市立某某國小",
       "capacity": 400,
+      "currentOccupancy": 0,
       "supportedDisasters": 7,
       "accesibility": true,
       "address": "臺北市某某區某某路100號",
@@ -314,9 +322,11 @@ GET /api/Shelter/search?name=學校
   "count": 456,
   "data": [
     {
+      "id": "3",
       "type": "學校",
       "name": "無障礙友善學校",
       "capacity": 300,
+      "currentOccupancy": 0,
       "supportedDisasters": 7,
       "accesibility": true,
       "address": "臺北市某某區某某路200號",
@@ -423,9 +433,11 @@ GET /api/Shelter/nearby?latitude=25.060459&longitude=121.509074&radius=2
   "count": 15,
   "data": [
     {
+      "id": "4",
       "type": "學校",
       "name": "附近的學校",
       "capacity": 400,
+      "currentOccupancy": 0,
       "supportedDisasters": 7,
       "accesibility": true,
       "address": "臺北市中正區某某路50號",
