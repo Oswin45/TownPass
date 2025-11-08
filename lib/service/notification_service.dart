@@ -83,7 +83,8 @@ class NotificationService extends GetxService {
           isDisasterMode.value = true;
           currentDisasterType.value = disasterType;
 
-          Get.toNamed(TPRoute.disasterShelter);
+          // Get.toNamed(TPRoute.disasterShelter);
+          Get.back();
         }
       }
     }
