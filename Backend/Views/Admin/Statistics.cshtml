@@ -1,0 +1,437 @@
+@{
+    ViewData["Title"] = "快取統計";
+}
+
+<div class="row mb-4">
+    <div class="col-12">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="@Url.Action("Index", "Admin")">Admin</a></li>
+                <li class="breadcrumb-item active" aria-current="page">統計資料</li>
+            </ol>
+        </nav>
+        <h1 class="display-5">
+            <i class="bi bi-bar-chart"></i> 快取統計
+        </h1>
+        <p class="lead">詳細的快取使用統計與分析</p>
+    </div>
+</div>
+
+<div class="row" id="statisticsContent">
+    <div class="col-12 text-center py-5">
+        <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
+            <span class="visually-hidden">載入中...</span>
+        </div>
+        <p class="text-muted mt-3">正在載入統計資料...</p>
+    </div>
+</div>
+
+@section Scripts {
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script>
+        let shelterTypeChart = null;
+        let disasterTypeChart = null;
+
+        $(document).ready(function() {
+            loadStatistics();
+        });
+
+        function loadStatistics() {
+            $.ajax({
+                url: '/api/Admin/cache-statistics',
+                method: 'GET',
+                success: function(response) {
+                    displayStatistics(response.data);
+                },
+                error: function(xhr, status, error) {
+                    showError(xhr.responseJSON?.message || error);
+                }
+            });
+        }
+
+        function displayStatistics(data) {
+            const html = `
+                <!-- 概要卡片 -->
+                <div class="row mb-4">
+                    <div class="col-md-3">
+                        <div class="card border-primary">
+                            <div class="card-body text-center">
+                                <i class="bi bi-database fs-1 text-primary"></i>
+                                <h6 class="text-muted mt-2">總避難所數</h6>
+                                <h2 class="text-primary mb-0">${data.totalShelters.toLocaleString()}</h2>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card border-success">
+                            <div class="card-body text-center">
+                                <i class="bi bi-tsunami fs-1 text-success"></i>
+                                <h6 class="text-muted mt-2">天然災害</h6>
+                                <h2 class="text-success mb-0">${data.sheltersByType.naturalDisaster.toLocaleString()}</h2>
+                                <small class="text-muted">${((data.sheltersByType.naturalDisaster / data.totalShelters) * 100).toFixed(1)}%</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card border-info">
+                            <div class="card-body text-center">
+                                <i class="bi bi-shield-fill-check fs-1 text-info"></i>
+                                <h6 class="text-muted mt-2">防空避難</h6>
+                                <h2 class="text-info mb-0">${data.sheltersByType.airRaid.toLocaleString()}</h2>
+                                <small class="text-muted">${((data.sheltersByType.airRaid / data.totalShelters) * 100).toFixed(1)}%</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card border-warning">
+                            <div class="card-body text-center">
+                                <i class="bi bi-clock-history fs-1 text-warning"></i>
+                                <h6 class="text-muted mt-2">快取年齡</h6>
+                                <h2 class="text-warning mb-0">${formatDuration(data.cacheAge)}</h2>
+                                <small class="text-muted">自上次更新</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 圖表區域 -->
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header bg-light">
+                                <h6 class="mb-0"><i class="bi bi-pie-chart"></i> 避難所類型分布</h6>
+                            </div>
+                            <div class="card-body">
+                                <canvas id="shelterTypeChart" height="300"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header bg-light">
+                                <h6 class="mb-0"><i class="bi bi-bar-chart"></i> 災害類型分布</h6>
+                            </div>
+                            <div class="card-body">
+                                <canvas id="disasterTypeChart" height="300"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 災害類型詳細統計 -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header bg-light">
+                                <h6 class="mb-0"><i class="bi bi-list-check"></i> 各災害類型統計</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="table-responsive">
+                                    <table class="table table-hover mb-0">
+                                        <thead>
+                                            <tr>
+                                                <th>災害類型</th>
+                                                <th class="text-end">避難所數量</th>
+                                                <th class="text-end">百分比</th>
+                                                <th>視覺化</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            ${generateDisasterTypeRows(data.sheltersByDisasterType, data.totalShelters)}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 快取健康狀態 -->
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header bg-light">
+                                <h6 class="mb-0"><i class="bi bi-speedometer2"></i> 快取效能</h6>
+                            </div>
+                            <div class="card-body">
+                                <dl class="row mb-0">
+                                    <dt class="col-sm-6">記憶體快取狀態:</dt>
+                                    <dd class="col-sm-6">${data.memoryCacheEnabled ? '<span class="badge bg-success">啟用</span>' : '<span class="badge bg-danger">停用</span>'}</dd>
+
+                                    <dt class="col-sm-6">資料庫快取狀態:</dt>
+                                    <dd class="col-sm-6">${data.totalShelters > 0 ? '<span class="badge bg-success">已填充</span>' : '<span class="badge bg-warning">空的</span>'}</dd>
+
+                                    <dt class="col-sm-6">快取年齡:</dt>
+                                    <dd class="col-sm-6">${formatDuration(data.cacheAge)}</dd>
+
+                                    <dt class="col-sm-6">健康狀態:</dt>
+                                    <dd class="col-sm-6">${getHealthBadge(data.cacheAge)}</dd>
+                                </dl>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header bg-light">
+                                <h6 class="mb-0"><i class="bi bi-info-circle"></i> 快取資訊</h6>
+                            </div>
+                            <div class="card-body">
+                                <dl class="row mb-0">
+                                    <dt class="col-sm-6">最後更新時間:</dt>
+                                    <dd class="col-sm-6">${data.lastUpdated ? new Date(data.lastUpdated).toLocaleString('zh-TW') : '未知'}</dd>
+
+                                    <dt class="col-sm-6">快取類型:</dt>
+                                    <dd class="col-sm-6">
+                                        <span class="badge bg-primary me-1">記憶體</span>
+                                        <span class="badge bg-info">SQLite</span>
+                                    </dd>
+
+                                    <dt class="col-sm-6">資料完整性:</dt>
+                                    <dd class="col-sm-6">${data.totalShelters > 0 ? '<i class="bi bi-check-circle text-success"></i> 完整' : '<i class="bi bi-x-circle text-danger"></i> 不完整'}</dd>
+
+                                    <dt class="col-sm-6">推薦操作:</dt>
+                                    <dd class="col-sm-6">${getRecommendedAction(data.cacheAge)}</dd>
+                                </dl>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 操作按鈕 -->
+                <div class="row">
+                    <div class="col-12">
+                        <div class="card bg-light">
+                            <div class="card-body text-center">
+                                <h6 class="mb-3">快速操作</h6>
+                                <div class="btn-group" role="group">
+                                    <a href="@Url.Action("RefreshCache", "Admin")" class="btn btn-success">
+                                        <i class="bi bi-arrow-clockwise"></i> 刷新快取
+                                    </a>
+                                    <a href="@Url.Action("CacheStatus", "Admin")" class="btn btn-info">
+                                        <i class="bi bi-info-circle"></i> 查看狀態
+                                    </a>
+                                    <button class="btn btn-primary" onclick="loadStatistics()">
+                                        <i class="bi bi-arrow-repeat"></i> 重新整理
+                                    </button>
+                                    <a href="@Url.Action("Index", "Admin")" class="btn btn-secondary">
+                                        <i class="bi bi-house"></i> 返回主控台
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            $('#statisticsContent').html(html);
+
+            // 繪製圖表
+            drawShelterTypeChart(data);
+            drawDisasterTypeChart(data);
+        }
+
+        function drawShelterTypeChart(data) {
+            const ctx = document.getElementById('shelterTypeChart');
+            
+            if (shelterTypeChart) {
+                shelterTypeChart.destroy();
+            }
+
+            shelterTypeChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['天然災害避難所', '防空避難所'],
+                    datasets: [{
+                        data: [
+                            data.sheltersByType.naturalDisaster,
+                            data.sheltersByType.airRaid
+                        ],
+                        backgroundColor: [
+                            'rgba(25, 135, 84, 0.8)',
+                            'rgba(13, 202, 240, 0.8)'
+                        ],
+                        borderColor: [
+                            'rgba(25, 135, 84, 1)',
+                            'rgba(13, 202, 240, 1)'
+                        ],
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.label || '';
+                                    const value = context.parsed || 0;
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percentage = ((value / total) * 100).toFixed(1);
+                                    return label + ': ' + value.toLocaleString() + ' (' + percentage + '%)';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function drawDisasterTypeChart(data) {
+            const ctx = document.getElementById('disasterTypeChart');
+            
+            if (disasterTypeChart) {
+                disasterTypeChart.destroy();
+            }
+
+            const disasters = Object.entries(data.sheltersByDisasterType)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 8); // 只顯示前8個
+
+            disasterTypeChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: disasters.map(d => getDisasterTypeLabel(d[0])),
+                    datasets: [{
+                        label: '避難所數量',
+                        data: disasters.map(d => d[1]),
+                        backgroundColor: 'rgba(13, 110, 253, 0.8)',
+                        borderColor: 'rgba(13, 110, 253, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toLocaleString();
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function generateDisasterTypeRows(disasters, total) {
+            return Object.entries(disasters)
+                .sort((a, b) => b[1] - a[1])
+                .map(([type, count]) => {
+                    const percentage = ((count / total) * 100).toFixed(2);
+                    const barWidth = Math.max(percentage, 2); // 最小寬度2%
+                    return `
+                        <tr>
+                            <td><strong>${getDisasterTypeLabel(type)}</strong></td>
+                            <td class="text-end">${count.toLocaleString()}</td>
+                            <td class="text-end">${percentage}%</td>
+                            <td>
+                                <div class="progress" style="height: 20px;">
+                                    <div class="progress-bar" role="progressbar" 
+                                         style="width: ${barWidth}%" 
+                                         aria-valuenow="${percentage}" 
+                                         aria-valuemin="0" 
+                                         aria-valuemax="100">
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                })
+                .join('');
+        }
+
+        function getDisasterTypeLabel(type) {
+            const labels = {
+                'Flood': '水災',
+                'Earthquake': '震災',
+                'Tsunami': '海嘯',
+                'Landslide': '土石流',
+                'Debris': '土石流',
+                'AirRaid': '防空',
+                'Typhoon': '颱風',
+                'Other': '其他'
+            };
+            return labels[type] || type;
+        }
+
+        function formatDuration(seconds) {
+            if (!seconds) return '未知';
+            
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            
+            if (hours > 24) {
+                const days = Math.floor(hours / 24);
+                return days + ' 天';
+            } else if (hours > 0) {
+                return hours + ' 小時 ' + minutes + ' 分鐘';
+            } else if (minutes > 0) {
+                return minutes + ' 分鐘';
+            } else {
+                return seconds + ' 秒';
+            }
+        }
+
+        function getHealthBadge(cacheAge) {
+            if (!cacheAge) return '<span class="badge bg-secondary">未知</span>';
+            
+            const hours = cacheAge / 3600;
+            if (hours < 1) {
+                return '<span class="badge bg-success">極佳</span>';
+            } else if (hours < 6) {
+                return '<span class="badge bg-success">良好</span>';
+            } else if (hours < 24) {
+                return '<span class="badge bg-info">正常</span>';
+            } else if (hours < 72) {
+                return '<span class="badge bg-warning">注意</span>';
+            } else {
+                return '<span class="badge bg-danger">需要更新</span>';
+            }
+        }
+
+        function getRecommendedAction(cacheAge) {
+            if (!cacheAge) return '檢查系統狀態';
+            
+            const hours = cacheAge / 3600;
+            if (hours < 6) {
+                return '<span class="text-success">無需操作</span>';
+            } else if (hours < 24) {
+                return '<a href="@Url.Action("RefreshCache", "Admin")">考慮刷新</a>';
+            } else {
+                return '<a href="@Url.Action("RefreshCache", "Admin")" class="text-danger fw-bold">建議立即刷新</a>';
+            }
+        }
+
+        function showError(message) {
+            $('#statisticsContent').html(`
+                <div class="col-12">
+                    <div class="alert alert-danger">
+                        <h5><i class="bi bi-x-circle"></i> 載入失敗</h5>
+                        <p class="mb-0">${message}</p>
+                    </div>
+                    <div class="text-center">
+                        <button class="btn btn-primary" onclick="loadStatistics()">
+                            <i class="bi bi-arrow-repeat"></i> 重試
+                        </button>
+                        <a href="@Url.Action("Index", "Admin")" class="btn btn-outline-secondary">
+                            <i class="bi bi-house"></i> 返回主控台
+                        </a>
+                    </div>
+                </div>
+            `);
+        }
+    </script>
+}

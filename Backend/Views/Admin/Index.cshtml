@@ -1,0 +1,299 @@
+@{
+    ViewData["Title"] = "Admin Dashboard";
+}
+
+<div class="row mb-4">
+    <div class="col-12">
+        <h1 class="display-4">
+            <i class="bi bi-shield-lock"></i> Admin Dashboard
+        </h1>
+        <p class="lead">避難所快取系統管理介面</p>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-6 col-lg-3 mb-3">
+        <div class="card border-primary">
+            <div class="card-body text-center">
+                <i class="bi bi-hdd-network fs-1 text-primary"></i>
+                <h5 class="card-title mt-2">快取狀態</h5>
+                <p class="card-text text-muted">查看當前快取狀態</p>
+                <a href="@Url.Action("CacheStatus", "Admin")" class="btn btn-primary">
+                    <i class="bi bi-info-circle"></i> 查看
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6 col-lg-3 mb-3">
+        <div class="card border-success">
+            <div class="card-body text-center">
+                <i class="bi bi-arrow-clockwise fs-1 text-success"></i>
+                <h5 class="card-title mt-2">刷新快取</h5>
+                <p class="card-text text-muted">從外部 API 更新資料</p>
+                <a href="@Url.Action("RefreshCache", "Admin")" class="btn btn-success">
+                    <i class="bi bi-arrow-clockwise"></i> 刷新
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6 col-lg-3 mb-3">
+        <div class="card border-warning">
+            <div class="card-body text-center">
+                <i class="bi bi-database-fill-check fs-1 text-warning"></i>
+                <h5 class="card-title mt-2">完整更新</h5>
+                <p class="card-text text-muted">清除並重建快取</p>
+                <a href="@Url.Action("FullUpdate", "Admin")" class="btn btn-warning">
+                    <i class="bi bi-database-fill-gear"></i> 更新
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6 col-lg-3 mb-3">
+        <div class="card border-info">
+            <div class="card-body text-center">
+                <i class="bi bi-bar-chart fs-1 text-info"></i>
+                <h5 class="card-title mt-2">統計資訊</h5>
+                <p class="card-text text-muted">查看快取統計</p>
+                <a href="@Url.Action("Statistics", "Admin")" class="btn btn-info">
+                    <i class="bi bi-graph-up"></i> 查看
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-dark text-white">
+                <h5 class="mb-0"><i class="bi bi-heart-pulse"></i> 系統健康狀態</h5>
+            </div>
+            <div class="card-body" id="healthStatus">
+                <div class="text-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">載入中...</span>
+                    </div>
+                    <p class="mt-2">正在載入健康狀態...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header bg-secondary text-white">
+                <h5 class="mb-0"><i class="bi bi-info-circle"></i> 快速資訊</h5>
+            </div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-sm-6">記憶體快取時間:</dt>
+                    <dd class="col-sm-6">5 分鐘</dd>
+
+                    <dt class="col-sm-6">資料庫引擎:</dt>
+                    <dd class="col-sm-6">SQLite</dd>
+
+                    <dt class="col-sm-6">資料庫檔案:</dt>
+                    <dd class="col-sm-6"><code>shelters.db</code></dd>
+
+                    <dt class="col-sm-6">API 端點:</dt>
+                    <dd class="col-sm-6"><code>/api/Admin/*</code></dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header bg-secondary text-white">
+                <h5 class="mb-0"><i class="bi bi-tools"></i> 快速操作</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <button class="btn btn-outline-primary" onclick="checkHealth()">
+                        <i class="bi bi-heart-pulse"></i> 檢查健康狀態
+                    </button>
+                    <button class="btn btn-outline-success" onclick="refreshCache()">
+                        <i class="bi bi-arrow-clockwise"></i> 立即刷新快取
+                    </button>
+                    <button class="btn btn-outline-danger" onclick="clearCache()">
+                        <i class="bi bi-trash"></i> 清除所有快取
+                    </button>
+                    <a href="/api/Shelter/all" class="btn btn-outline-info" target="_blank">
+                        <i class="bi bi-database"></i> 查看避難所資料
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="alert alert-info" role="alert">
+            <h5 class="alert-heading"><i class="bi bi-lightbulb"></i> 使用提示</h5>
+            <ul class="mb-0">
+                <li>建議每日執行一次「完整更新」以確保資料最新</li>
+                <li>系統會自動使用快取，無需手動干預</li>
+                <li>如果快取超過 24 小時，健康檢查會顯示警告</li>
+                <li>記憶體快取每 5 分鐘自動更新，資料庫快取持久保存</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <script>
+        // 載入頁面時檢查健康狀態
+        $(document).ready(function() {
+            loadHealthStatus();
+        });
+
+        function loadHealthStatus() {
+            $.ajax({
+                url: '/api/Admin/health',
+                method: 'GET',
+                success: function(response) {
+                    displayHealthStatus(response);
+                },
+                error: function(xhr, status, error) {
+                    $('#healthStatus').html(`
+                        <div class="alert alert-danger">
+                            <i class="bi bi-x-circle"></i> 無法載入健康狀態: ${error}
+                        </div>
+                    `);
+                }
+            });
+        }
+
+        function displayHealthStatus(response) {
+            const data = response.data;
+            const statusClass = response.healthy ? 'success' : 'danger';
+            const statusIcon = response.healthy ? 'check-circle' : 'x-circle';
+            const statusText = response.healthy ? '健康' : '不健康';
+
+            let warnings = '';
+            if (data.warnings && data.warnings.length > 0) {
+                warnings = `
+                    <div class="alert alert-warning mt-3">
+                        <h6><i class="bi bi-exclamation-triangle"></i> 警告</h6>
+                        <ul class="mb-0">
+                            ${data.warnings.map(w => `<li>${w}</li>`).join('')}
+                        </ul>
+                    </div>
+                `;
+            }
+
+            const cacheAge = data.cache.ageInHours ? `${data.cache.ageInHours.toFixed(1)} 小時` : '未知';
+            const lastUpdated = data.cache.lastUpdated ? new Date(data.cache.lastUpdated).toLocaleString('zh-TW') : '未知';
+
+            $('#healthStatus').html(`
+                <div class="alert alert-${statusClass} mb-3">
+                    <h4><i class="bi bi-${statusIcon}"></i> 系統狀態: ${statusText}</h4>
+                </div>
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="card">
+                            <div class="card-body text-center">
+                                <h6 class="text-muted">快取記錄數</h6>
+                                <h3 class="text-primary">${data.cache.recordCount.toLocaleString()}</h3>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card">
+                            <div class="card-body text-center">
+                                <h6 class="text-muted">快取年齡</h6>
+                                <h3 class="text-info">${cacheAge}</h3>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card">
+                            <div class="card-body text-center">
+                                <h6 class="text-muted">最後更新</h6>
+                                <p class="mb-0 small">${lastUpdated}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                ${warnings}
+            `);
+        }
+
+        function checkHealth() {
+            showLoading('檢查健康狀態中...');
+            loadHealthStatus();
+        }
+
+        function refreshCache() {
+            if (!confirm('確定要刷新快取嗎？這將從外部 API 重新獲取資料，可能需要幾秒鐘。')) {
+                return;
+            }
+
+            showLoading('正在刷新快取...');
+            $.ajax({
+                url: '/api/Admin/refresh-cache',
+                method: 'POST',
+                success: function(response) {
+                    showSuccess(`快取刷新成功！共更新 ${response.data.totalShelters} 筆資料，耗時 ${response.data.refreshDurationSeconds} 秒。`);
+                    setTimeout(loadHealthStatus, 1000);
+                },
+                error: function(xhr, status, error) {
+                    showError('刷新快取失敗: ' + (xhr.responseJSON?.message || error));
+                }
+            });
+        }
+
+        function clearCache() {
+            if (!confirm('⚠️ 警告：這將清除所有快取資料！\n\n確定要繼續嗎？')) {
+                return;
+            }
+
+            showLoading('正在清除快取...');
+            $.ajax({
+                url: '/api/Admin/clear-cache',
+                method: 'DELETE',
+                success: function(response) {
+                    showSuccess('所有快取已清除！');
+                    setTimeout(loadHealthStatus, 1000);
+                },
+                error: function(xhr, status, error) {
+                    showError('清除快取失敗: ' + (xhr.responseJSON?.message || error));
+                }
+            });
+        }
+
+        function showLoading(message) {
+            $('#healthStatus').html(`
+                <div class="text-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">載入中...</span>
+                    </div>
+                    <p class="mt-2">${message}</p>
+                </div>
+            `);
+        }
+
+        function showSuccess(message) {
+            $('#healthStatus').html(`
+                <div class="alert alert-success">
+                    <i class="bi bi-check-circle"></i> ${message}
+                </div>
+            `);
+        }
+
+        function showError(message) {
+            $('#healthStatus').html(`
+                <div class="alert alert-danger">
+                    <i class="bi bi-x-circle"></i> ${message}
+                </div>
+            `);
+        }
+    </script>
+}

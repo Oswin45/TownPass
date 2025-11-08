@@ -27,7 +27,7 @@ namespace Backend.Services
         /// Get all shelters (includes natural disaster and air raid shelters)
         /// </summary>
         /// <returns>統一的避難所列表</returns>
-        public async Task<List<Shelter>> GetAllSheltersAsync()
+        public async Task<List<Shelter>> GetAllSheltersAsync(bool geocode = true)
         {
             try
             {

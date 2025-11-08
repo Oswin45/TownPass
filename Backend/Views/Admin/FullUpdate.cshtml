@@ -1,0 +1,326 @@
+@{
+    ViewData["Title"] = "完整更新";
+}
+
+<div class="row mb-4">
+    <div class="col-12">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="@Url.Action("Index", "Admin")">Admin</a></li>
+                <li class="breadcrumb-item active" aria-current="page">完整更新</li>
+            </ol>
+        </nav>
+        <h1 class="display-5">
+            <i class="bi bi-arrow-repeat"></i> 完整更新
+        </h1>
+        <p class="lead">清除所有快取並重新建立</p>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-lg-8 offset-lg-2">
+        <div class="card border-warning">
+            <div class="card-header bg-warning text-dark">
+                <h5 class="mb-0"><i class="bi bi-exclamation-triangle"></i> 重要警告</h5>
+            </div>
+            <div class="card-body">
+                <p><strong>完整更新</strong>是一個<span class="text-danger fw-bold">破壞性操作</span>，將會：</p>
+                <ol>
+                    <li><strong class="text-danger">清除記憶體快取</strong> - 立即清空所有記憶體中的資料</li>
+                    <li><strong class="text-danger">清空 SQLite 資料庫</strong> - 刪除所有持久化快取資料</li>
+                    <li><strong>從外部 API 重新獲取</strong> - 完整下載所有避難所資料</li>
+                    <li><strong>重建快取系統</strong> - 將新資料儲存至記憶體和資料庫</li>
+                </ol>
+                <div class="alert alert-danger mt-3 mb-0">
+                    <i class="bi bi-exclamation-octagon"></i> 
+                    <strong>影響範圍：</strong>
+                    <ul class="mb-0 mt-2">
+                        <li>此操作期間（約 5-10 秒），所有 API 請求將直接存取外部服務</li>
+                        <li>可能導致短暫的效能下降</li>
+                        <li>不建議在高峰時段執行</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-lg-8 offset-lg-2">
+        <div class="card">
+            <div class="card-body text-center py-5" id="updateContent">
+                <i class="bi bi-arrow-repeat display-1 text-danger mb-3"></i>
+                <h4 class="mb-4">準備執行完整更新</h4>
+                <p class="text-muted mb-4">此操作將清除所有快取並重新建立</p>
+                
+                <div class="form-check mb-4 d-inline-block text-start">
+                    <input class="form-check-input" type="checkbox" id="confirmCheckbox">
+                    <label class="form-check-label" for="confirmCheckbox">
+                        我了解這是破壞性操作，並已確認系統狀態
+                    </label>
+                </div>
+
+                <div class="d-grid gap-2">
+                    <button class="btn btn-danger btn-lg" onclick="startFullUpdate()" id="updateButton" disabled>
+                        <i class="bi bi-arrow-repeat"></i> 執行完整更新
+                    </button>
+                    <a href="@Url.Action("Index", "Admin")" class="btn btn-outline-secondary">
+                        <i class="bi bi-x-circle"></i> 取消
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8 offset-lg-2">
+        <div class="card">
+            <div class="card-header bg-light">
+                <h6 class="mb-0"><i class="bi bi-question-circle"></i> 何時需要完整更新？</h6>
+            </div>
+            <div class="card-body">
+                <ul class="mb-0">
+                    <li><strong>資料庫損壞</strong> - SQLite 資料庫檔案損壞或異常</li>
+                    <li><strong>快取不一致</strong> - 記憶體和資料庫快取出現嚴重不一致</li>
+                    <li><strong>架構變更</strong> - 資料模型更新需要重建快取</li>
+                    <li><strong>長期未更新</strong> - 快取資料超過一週未更新</li>
+                    <li><strong>資料異常</strong> - 發現快取資料明顯錯誤或過時</li>
+                    <li><strong>定期維護</strong> - 每月或每季的例行性完整更新</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="alert alert-info mt-3">
+            <h6><i class="bi bi-lightbulb"></i> 建議替代方案</h6>
+            <p class="mb-2">如果只是想更新資料，建議使用 <strong>刷新快取</strong> 功能：</p>
+            <ul class="mb-0">
+                <li>執行速度更快（約 3-5 秒）</li>
+                <li>對系統影響較小</li>
+                <li>適合日常維護使用</li>
+            </ul>
+            <a href="@Url.Action("RefreshCache", "Admin")" class="btn btn-sm btn-info mt-2">
+                <i class="bi bi-arrow-clockwise"></i> 前往刷新快取
+            </a>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <script>
+        // 啟用/停用更新按鈕
+        $('#confirmCheckbox').change(function() {
+            $('#updateButton').prop('disabled', !this.checked);
+        });
+
+        function startFullUpdate() {
+            if (!$('#confirmCheckbox').is(':checked')) {
+                alert('請先確認您了解此操作的影響');
+                return;
+            }
+
+            if (!confirm('⚠️ 最後確認 ⚠️\n\n確定要執行完整更新嗎？\n\n這將清除所有快取並重新建立，過程中可能影響系統效能。')) {
+                return;
+            }
+
+            showLoading();
+
+            const startTime = new Date();
+
+            $.ajax({
+                url: '/api/Admin/full-update',
+                method: 'POST',
+                success: function(response) {
+                    const duration = ((new Date() - startTime) / 1000).toFixed(2);
+                    showSuccess(response, duration);
+                },
+                error: function(xhr, status, error) {
+                    showError(xhr.responseJSON?.message || error);
+                }
+            });
+        }
+
+        function showLoading() {
+            $('#updateContent').html(`
+                <div class="mb-4">
+                    <div class="spinner-border text-danger mb-3" role="status" style="width: 4rem; height: 4rem;">
+                        <span class="visually-hidden">載入中...</span>
+                    </div>
+                    <h4 class="mb-3">正在執行完整更新...</h4>
+                    <p class="text-muted">請耐心等待，請勿關閉此頁面</p>
+                </div>
+
+                <div class="card">
+                    <div class="card-body">
+                        <h6 class="mb-3">執行步驟：</h6>
+                        <div class="list-group">
+                            <div class="list-group-item" id="step1">
+                                <div class="d-flex align-items-center">
+                                    <div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
+                                    <span>步驟 1: 清除記憶體快取...</span>
+                                </div>
+                            </div>
+                            <div class="list-group-item" id="step2">
+                                <div class="d-flex align-items-center">
+                                    <div class="spinner-border spinner-border-sm text-secondary me-2" role="status"></div>
+                                    <span class="text-muted">步驟 2: 清空資料庫...</span>
+                                </div>
+                            </div>
+                            <div class="list-group-item" id="step3">
+                                <div class="d-flex align-items-center">
+                                    <div class="spinner-border spinner-border-sm text-secondary me-2" role="status"></div>
+                                    <span class="text-muted">步驟 3: 從 API 獲取資料...</span>
+                                </div>
+                            </div>
+                            <div class="list-group-item" id="step4">
+                                <div class="d-flex align-items-center">
+                                    <div class="spinner-border spinner-border-sm text-secondary me-2" role="status"></div>
+                                    <span class="text-muted">步驟 4: 重建快取...</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `);
+
+            // 模擬進度動畫
+            animateSteps();
+        }
+
+        function animateSteps() {
+            setTimeout(() => updateStep('step1', 'step2'), 1000);
+            setTimeout(() => updateStep('step2', 'step3'), 2500);
+            setTimeout(() => updateStep('step3', 'step4'), 4000);
+        }
+
+        function updateStep(completedStep, nextStep) {
+            $(`#${completedStep}`).html(`
+                <div class="d-flex align-items-center">
+                    <i class="bi bi-check-circle text-success me-2"></i>
+                    <span>${$(`#${completedStep} span`).text().replace('...', ' ✓')}</span>
+                </div>
+            `);
+            
+            if (nextStep) {
+                $(`#${nextStep} .spinner-border`).removeClass('text-secondary').addClass('text-primary');
+                $(`#${nextStep} span`).removeClass('text-muted');
+            }
+        }
+
+        function showSuccess(response, actualDuration) {
+            const data = response.data;
+            const html = `
+                <div class="alert alert-success mb-4">
+                    <h4><i class="bi bi-check-circle"></i> 完整更新成功！</h4>
+                    <p class="mb-0">所有快取已清除並重新建立</p>
+                </div>
+
+                <div class="row mb-4">
+                    <div class="col-md-3">
+                        <div class="card border-success">
+                            <div class="card-body text-center">
+                                <i class="bi bi-database-fill-check fs-1 text-success"></i>
+                                <h6 class="text-muted mt-2">總避難所數</h6>
+                                <h3 class="text-success">${data.totalShelters.toLocaleString()}</h3>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card border-primary">
+                            <div class="card-body text-center">
+                                <i class="bi bi-tsunami fs-1 text-primary"></i>
+                                <h6 class="text-muted mt-2">天然災害</h6>
+                                <h3 class="text-primary">${data.sheltersByType.naturalDisaster.toLocaleString()}</h3>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card border-info">
+                            <div class="card-body text-center">
+                                <i class="bi bi-shield-fill-check fs-1 text-info"></i>
+                                <h6 class="text-muted mt-2">防空避難</h6>
+                                <h3 class="text-info">${data.sheltersByType.airRaid.toLocaleString()}</h3>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card border-warning">
+                            <div class="card-body text-center">
+                                <i class="bi bi-stopwatch fs-1 text-warning"></i>
+                                <h6 class="text-muted mt-2">總耗時</h6>
+                                <h3 class="text-warning">${actualDuration}秒</h3>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card mb-4">
+                    <div class="card-header bg-light">
+                        <h6 class="mb-0"><i class="bi bi-clipboard-check"></i> 執行摘要</h6>
+                    </div>
+                    <div class="card-body">
+                        <dl class="row mb-0">
+                            <dt class="col-sm-4">快取狀態:</dt>
+                            <dd class="col-sm-8"><span class="badge bg-success">已完全重建</span></dd>
+
+                            <dt class="col-sm-4">記憶體快取:</dt>
+                            <dd class="col-sm-8"><span class="badge bg-primary">已更新</span></dd>
+
+                            <dt class="col-sm-4">資料庫快取:</dt>
+                            <dd class="col-sm-8"><span class="badge bg-info">已重建</span></dd>
+
+                            <dt class="col-sm-4">完成時間:</dt>
+                            <dd class="col-sm-8">${new Date(data.timestamp).toLocaleString('zh-TW')}</dd>
+
+                            <dt class="col-sm-4">操作類型:</dt>
+                            <dd class="col-sm-8"><span class="badge bg-danger">完整更新</span></dd>
+                        </dl>
+                    </div>
+                </div>
+
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle"></i> 
+                    快取系統已完全重建，所有資料都是最新的。建議您前往快取狀態頁面確認詳細資訊。
+                </div>
+
+                <div class="d-grid gap-2">
+                    <a href="@Url.Action("CacheStatus", "Admin")" class="btn btn-primary btn-lg">
+                        <i class="bi bi-info-circle"></i> 查看快取狀態
+                    </a>
+                    <a href="@Url.Action("Index", "Admin")" class="btn btn-outline-secondary">
+                        <i class="bi bi-house"></i> 返回主控台
+                    </a>
+                </div>
+            `;
+
+            $('#updateContent').html(html);
+        }
+
+        function showError(message) {
+            $('#updateContent').html(`
+                <div class="alert alert-danger mb-4">
+                    <h4><i class="bi bi-x-circle"></i> 更新失敗</h4>
+                    <p class="mb-0">${message}</p>
+                </div>
+
+                <div class="alert alert-warning">
+                    <h6><i class="bi bi-exclamation-triangle"></i> 可能的影響</h6>
+                    <p class="mb-0">快取可能處於不一致狀態，建議檢查系統健康狀態或聯繫系統管理員。</p>
+                </div>
+
+                <div class="d-grid gap-2">
+                    <a href="@Url.Action("Index", "Admin")" class="btn btn-primary">
+                        <i class="bi bi-activity"></i> 檢查健康狀態
+                    </a>
+                    <button class="btn btn-outline-danger" onclick="location.reload()">
+                        <i class="bi bi-arrow-repeat"></i> 重新載入頁面
+                    </button>
+                    <a href="@Url.Action("CacheStatus", "Admin")" class="btn btn-outline-info">
+                        <i class="bi bi-info-circle"></i> 查看快取狀態
+                    </a>
+                </div>
+            `);
+        }
+    </script>
+}

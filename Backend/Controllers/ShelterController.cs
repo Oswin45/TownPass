@@ -10,22 +10,22 @@ namespace Backend.Controllers
     public class ShelterController : ControllerBase
     {
         private readonly ILogger<ShelterController> _logger;
-        private readonly UnifiedShelterService _shelterService;
+        private readonly CachedUnifiedShelterService _cachedShelterService;
 
         public ShelterController(
             ILogger<ShelterController> logger,
-            UnifiedShelterService shelterService)
+            CachedUnifiedShelterService cachedShelterService)
         {
             _logger = logger;
-            _shelterService = shelterService;
+            _cachedShelterService = cachedShelterService;
         }
 
         /// <summary>
-        /// 從服務獲取所有類型的避難所資料
+        /// 從快取獲取所有類型的避難所資料
         /// </summary>
         private async Task<List<Shelter>> FetchAllShelters()
         {
-            return await _shelterService.GetAllSheltersAsync();
+            return await _cachedShelterService.GetAllSheltersAsync();
         }
 
         /// <summary>
@@ -38,7 +38,7 @@ namespace Backend.Controllers
             try
             {
                 _logger.LogInformation("獲取所有避難收容所資料（包含天然災害和防空避難所）");
-                var shelters = await _shelterService.GetAllSheltersAsync();
+                var shelters = await _cachedShelterService.GetAllSheltersAsync();
                 
                 return Ok(new
                 {
@@ -76,7 +76,7 @@ namespace Backend.Controllers
                 _logger.LogInformation($"根據災害類型篩選收容所: {disasterType}");
                 
                 // 使用統一服務獲取特定災害類型的避難所
-                var filtered = await _shelterService.GetSheltersByDisasterTypeAsync(disasterType);
+                var filtered = await _cachedShelterService.GetSheltersByDisasterTypeAsync(disasterType);
 
                 return Ok(new
                 {
@@ -110,7 +110,7 @@ namespace Backend.Controllers
                 _logger.LogInformation($"根據區域篩選收容所: {district}");
                 
                 // 區域篩選僅適用於天然災害避難所
-                var allShelters = await _shelterService.GetAllSheltersAsync();
+                var allShelters = await _cachedShelterService.GetAllSheltersAsync();
                 var filtered = allShelters
                     .Where(s => s.Address != null && s.Address.Contains(district, StringComparison.OrdinalIgnoreCase))
                     .ToList();
@@ -140,7 +140,7 @@ namespace Backend.Controllers
             try
             {
                 _logger.LogInformation($"根據最小容量篩選收容所: {minCapacity}");
-                var allShelters = await _shelterService.GetAllSheltersAsync();
+                var allShelters = await _cachedShelterService.GetAllSheltersAsync();
                 var filtered = allShelters
                     .Where(s => s.Capacity >= minCapacity)
                     .OrderByDescending(s => s.Capacity)
@@ -176,7 +176,7 @@ namespace Backend.Controllers
                 }
 
                 _logger.LogInformation($"搜尋收容所: {name}");
-                var filtered = await _shelterService.SearchSheltersByNameAsync(name);
+                var filtered = await _cachedShelterService.SearchSheltersByNameAsync(name);
 
                 return Ok(new
                 {
@@ -203,7 +203,7 @@ namespace Backend.Controllers
             try
             {
                 _logger.LogInformation("獲取有無障礙設施的收容所");
-                var allShelters = await _shelterService.GetAllSheltersAsync();
+                var allShelters = await _cachedShelterService.GetAllSheltersAsync();
                 var filtered = allShelters.Where(s => s.Accesibility).ToList();
 
                 return Ok(new
@@ -230,8 +230,8 @@ namespace Backend.Controllers
             try
             {
                 _logger.LogInformation("獲取收容所統計資訊");
-                var statistics = await _shelterService.GetUnifiedStatisticsAsync();
-                var shelters = await _shelterService.GetAllSheltersAsync();
+                var statistics = await _cachedShelterService.GetUnifiedStatisticsAsync();
+                var shelters = await _cachedShelterService.GetAllSheltersAsync();
 
                 var stats = new
                 {
@@ -293,7 +293,7 @@ namespace Backend.Controllers
                 }
 
                 _logger.LogInformation($"搜尋座標 ({latitude}, {longitude}) 附近 {radius} 公里內的避難所");
-                var shelters = await _shelterService.GetNearbySheltersAsync(latitude, longitude, radius);
+                var shelters = await _cachedShelterService.GetNearbySheltersAsync(latitude, longitude, radius);
 
                 return Ok(new
                 {

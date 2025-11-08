@@ -519,3 +519,4 @@ FodyWeavers.xsd
 *.msm
 *.msp
 /Backend/appsettings.Development.json
+/Backend/shelters.db

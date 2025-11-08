@@ -1,0 +1,274 @@
+@{
+    ViewData["Title"] = "Cache Status";
+}
+
+<div class="row mb-4">
+    <div class="col-12">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="@Url.Action("Index", "Admin")">Admin</a></li>
+                <li class="breadcrumb-item active" aria-current="page">快取狀態</li>
+            </ol>
+        </nav>
+        <h1 class="display-5">
+            <i class="bi bi-hdd-network"></i> 快取狀態
+        </h1>
+        <p class="lead">查看記憶體快取和資料庫快取的詳細資訊</p>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h4><i class="bi bi-info-circle"></i> 快取資訊</h4>
+            <button class="btn btn-primary" onclick="refreshData()">
+                <i class="bi bi-arrow-clockwise"></i> 重新整理
+            </button>
+        </div>
+    </div>
+</div>
+
+<div id="cacheStatusContent">
+    <div class="text-center py-5">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">載入中...</span>
+        </div>
+        <p class="mt-3">正在載入快取狀態...</p>
+    </div>
+</div>
+
+@section Scripts {
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <script>
+        $(document).ready(function() {
+            loadCacheStatus();
+        });
+
+        function loadCacheStatus() {
+            $.ajax({
+                url: '/api/Admin/cache-status',
+                method: 'GET',
+                success: function(response) {
+                    displayCacheStatus(response.data);
+                },
+                error: function(xhr, status, error) {
+                    $('#cacheStatusContent').html(`
+                        <div class="alert alert-danger">
+                            <h4><i class="bi bi-x-circle"></i> 載入失敗</h4>
+                            <p>${xhr.responseJSON?.message || error}</p>
+                        </div>
+                    `);
+                }
+            });
+        }
+
+        function displayCacheStatus(data) {
+            const dbEnabled = data.databaseCache.enabled;
+            const memEnabled = data.memoryCache.enabled;
+            const recordCount = data.databaseCache.recordCount;
+            const lastUpdated = data.databaseCache.lastUpdated 
+                ? new Date(data.databaseCache.lastUpdated).toLocaleString('zh-TW') 
+                : '未知';
+            const ageHours = data.databaseCache.ageInHours 
+                ? data.databaseCache.ageInHours.toFixed(2) 
+                : 'N/A';
+
+            const dbStatusClass = dbEnabled ? 'success' : 'secondary';
+            const memStatusClass = memEnabled ? 'success' : 'secondary';
+            const dbStatusIcon = dbEnabled ? 'check-circle-fill' : 'x-circle-fill';
+            const memStatusIcon = memEnabled ? 'check-circle-fill' : 'x-circle-fill';
+
+            const html = `
+                <div class="row mb-4">
+                    <div class="col-md-6 mb-3">
+                        <div class="card border-${dbStatusClass}">
+                            <div class="card-header bg-${dbStatusClass} text-white">
+                                <h5 class="mb-0">
+                                    <i class="bi bi-database"></i> 資料庫快取
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <h6 class="mb-0">狀態</h6>
+                                    <span class="badge bg-${dbStatusClass}">
+                                        <i class="bi bi-${dbStatusIcon}"></i> ${dbEnabled ? '已啟用' : '未啟用'}
+                                    </span>
+                                </div>
+                                <hr>
+                                <dl class="row mb-0">
+                                    <dt class="col-sm-6">記錄數量:</dt>
+                                    <dd class="col-sm-6"><strong class="text-primary">${recordCount.toLocaleString()}</strong> 筆</dd>
+
+                                    <dt class="col-sm-6">最後更新:</dt>
+                                    <dd class="col-sm-6">${lastUpdated}</dd>
+
+                                    <dt class="col-sm-6">快取年齡:</dt>
+                                    <dd class="col-sm-6">
+                                        <span class="badge ${ageHours !== 'N/A' && parseFloat(ageHours) > 24 ? 'bg-warning' : 'bg-info'}">
+                                            ${ageHours} 小時
+                                        </span>
+                                    </dd>
+
+                                    <dt class="col-sm-6">資料庫引擎:</dt>
+                                    <dd class="col-sm-6">SQLite</dd>
+
+                                    <dt class="col-sm-6">資料庫檔案:</dt>
+                                    <dd class="col-sm-6"><code>shelters.db</code></dd>
+                                </dl>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6 mb-3">
+                        <div class="card border-${memStatusClass}">
+                            <div class="card-header bg-${memStatusClass} text-white">
+                                <h5 class="mb-0">
+                                    <i class="bi bi-memory"></i> 記憶體快取
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <h6 class="mb-0">狀態</h6>
+                                    <span class="badge bg-${memStatusClass}">
+                                        <i class="bi bi-${memStatusIcon}"></i> ${memEnabled ? '已啟用' : '未啟用'}
+                                    </span>
+                                </div>
+                                <hr>
+                                <dl class="row mb-0">
+                                    <dt class="col-sm-6">快取時間:</dt>
+                                    <dd class="col-sm-6"><strong class="text-info">${data.memoryCache.durationMinutes}</strong> 分鐘</dd>
+
+                                    <dt class="col-sm-6">快取類型:</dt>
+                                    <dd class="col-sm-6">IMemoryCache</dd>
+
+                                    <dt class="col-sm-6">快取策略:</dt>
+                                    <dd class="col-sm-6">時間過期 (TTL)</dd>
+
+                                    <dt class="col-sm-6">自動更新:</dt>
+                                    <dd class="col-sm-6">
+                                        <span class="badge bg-success">
+                                            <i class="bi bi-check-circle"></i> 是
+                                        </span>
+                                    </dd>
+
+                                    <dt class="col-sm-6">描述:</dt>
+                                    <dd class="col-sm-6 small text-muted">在記憶體中快取最常存取的資料</dd>
+                                </dl>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header bg-dark text-white">
+                                <h5 class="mb-0"><i class="bi bi-diagram-3"></i> 快取架構</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="text-center py-4">
+                                    <div class="d-flex justify-content-center align-items-center flex-wrap gap-3">
+                                        <div class="cache-flow-item">
+                                            <div class="badge bg-primary p-3">
+                                                <i class="bi bi-person fs-3"></i>
+                                                <div class="small mt-2">使用者請求</div>
+                                            </div>
+                                        </div>
+                                        <i class="bi bi-arrow-right fs-3 text-muted"></i>
+                                        <div class="cache-flow-item">
+                                            <div class="badge ${memEnabled ? 'bg-success' : 'bg-secondary'} p-3">
+                                                <i class="bi bi-memory fs-3"></i>
+                                                <div class="small mt-2">記憶體快取<br>(5分鐘)</div>
+                                            </div>
+                                        </div>
+                                        <i class="bi bi-arrow-right fs-3 text-muted"></i>
+                                        <div class="cache-flow-item">
+                                            <div class="badge ${dbEnabled ? 'bg-info' : 'bg-secondary'} p-3">
+                                                <i class="bi bi-database fs-3"></i>
+                                                <div class="small mt-2">SQLite<br>(持久化)</div>
+                                            </div>
+                                        </div>
+                                        <i class="bi bi-arrow-right fs-3 text-muted"></i>
+                                        <div class="cache-flow-item">
+                                            <div class="badge bg-warning p-3">
+                                                <i class="bi bi-cloud fs-3"></i>
+                                                <div class="small mt-2">外部 API</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <p class="text-muted mt-4 mb-0">
+                                        <small>系統會優先從記憶體快取讀取，未命中時從 SQLite 讀取，最後才從外部 API 獲取</small>
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header bg-secondary text-white">
+                                <h5 class="mb-0"><i class="bi bi-clock-history"></i> 時間資訊</h5>
+                            </div>
+                            <div class="card-body">
+                                <dl class="row mb-0">
+                                    <dt class="col-sm-3">當前時間:</dt>
+                                    <dd class="col-sm-9">${new Date(data.timestamp).toLocaleString('zh-TW')}</dd>
+
+                                    <dt class="col-sm-3">資料庫最後更新:</dt>
+                                    <dd class="col-sm-9">${lastUpdated}</dd>
+
+                                    <dt class="col-sm-3">快取年齡:</dt>
+                                    <dd class="col-sm-9">
+                                        ${ageHours} 小時
+                                        ${ageHours !== 'N/A' && parseFloat(ageHours) > 24 
+                                            ? '<span class="badge bg-warning ms-2"><i class="bi bi-exclamation-triangle"></i> 建議更新</span>' 
+                                            : ''}
+                                    </dd>
+                                </dl>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row mt-4">
+                    <div class="col-12">
+                        <div class="alert alert-info">
+                            <h6><i class="bi bi-lightbulb"></i> 提示</h6>
+                            <ul class="mb-0">
+                                <li>記憶體快取提供最快的存取速度，但應用程式重啟後會清空</li>
+                                <li>SQLite 資料庫快取提供持久化儲存，重啟後仍可使用</li>
+                                <li>建議當快取年齡超過 24 小時時執行刷新操作</li>
+                                <li>可以透過管理介面隨時手動刷新或清除快取</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            $('#cacheStatusContent').html(html);
+        }
+
+        function refreshData() {
+            $('#cacheStatusContent').html(`
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">載入中...</span>
+                    </div>
+                    <p class="mt-3">正在重新載入...</p>
+                </div>
+            `);
+            loadCacheStatus();
+        }
+    </script>
+
+    <style>
+        .cache-flow-item {
+            transition: transform 0.2s;
+        }
+        .cache-flow-item:hover {
+            transform: scale(1.1);
+        }
+    </style>
+}

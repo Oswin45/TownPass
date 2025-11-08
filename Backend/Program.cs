@@ -1,4 +1,6 @@
+using Backend.Data;
 using Backend.Services;
+using Microsoft.EntityFrameworkCore;
 
 namespace Backend
 {
@@ -19,8 +21,27 @@ namespace Backend
             
             // Register Google Maps Service
             builder.Services.AddHttpClient<GoogleMapsService>();
+            
+            // Configure SQLite Database for Shelter Cache
+            builder.Services.AddDbContext<ShelterDbContext>(options =>
+                options.UseSqlite(builder.Configuration.GetConnectionString("ShelterCache") 
+                    ?? "Data Source=shelters.db"));
+            
+            // Register Repository and Cached Service
+            builder.Services.AddScoped<ShelterRepository>();
+            builder.Services.AddScoped<CachedUnifiedShelterService>();
+            
+            // Add Memory Cache
+            builder.Services.AddMemoryCache();
 
             var app = builder.Build();
+            
+            // Initialize Database
+            using (var scope = app.Services.CreateScope())
+            {
+                var db = scope.ServiceProvider.GetRequiredService<ShelterDbContext>();
+                db.Database.EnsureCreated();
+            }
 
             // Configure the HTTP request pipeline.
             if (!app.Environment.IsDevelopment())
