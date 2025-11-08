@@ -5,6 +5,8 @@ import 'package:geolocator/geolocator.dart';
 import 'package:dio/dio.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../util/tp_colors.dart';
+import 'package:town_pass/util/tp_app_bar.dart';
+import 'package:town_pass/util/tp_text.dart';
 
 class UploadEventView extends StatefulWidget {
   const UploadEventView({Key? key}) : super(key: key);
@@ -176,22 +178,8 @@ class _UploadEventViewState extends State<UploadEventView> {
     final imageHeight = (screenWidth - 64) * 3 / 4;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          "上傳災情",
-          style: GoogleFonts.notoSans(
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
-            color: TPColors.grayscale900,
-          ),
-        ),
-        backgroundColor: TPColors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back_ios,
-              color: TPColors.grayscale700, size: 20),
-          onPressed: () => Navigator.pop(context),
-        ),
+      appBar: const TPAppBar(
+        title: "上傳災情",
       ),
       backgroundColor: TPColors.grayscale50,
       body: SingleChildScrollView(
@@ -327,8 +315,7 @@ class _UploadEventViewState extends State<UploadEventView> {
                             Text(
                               "支援 JPEG、HEIC 格式",
                               style: GoogleFonts.notoSans(
-                                  color: TPColors.grayscale400,
-                                  fontSize: 13),
+                                  color: TPColors.grayscale400, fontSize: 13),
                             ),
                           ],
                         )
@@ -429,9 +416,8 @@ class _UploadEventViewState extends State<UploadEventView> {
                   final isSelected = selectedTags.contains(tag);
                   return Container(
                     decoration: BoxDecoration(
-                      color: isSelected
-                          ? _getTagColor(tag)
-                          : TPColors.grayscale50,
+                      color:
+                          isSelected ? _getTagColor(tag) : TPColors.grayscale50,
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
                         color: isSelected
@@ -481,8 +467,9 @@ class _UploadEventViewState extends State<UploadEventView> {
                                   ? TPColors.white
                                   : TPColors.grayscale700,
                               fontSize: 13,
-                              fontWeight:
-                                  isSelected ? FontWeight.w600 : FontWeight.w500,
+                              fontWeight: isSelected
+                                  ? FontWeight.w600
+                                  : FontWeight.w500,
                             ),
                             textAlign: TextAlign.center,
                           ),
