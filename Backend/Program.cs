@@ -22,6 +22,9 @@ namespace Backend
             // Register Google Maps Service
             builder.Services.AddHttpClient<GoogleMapsService>();
             
+            // Register FCM Notification Service
+            builder.Services.AddScoped<FcmNotificationService>();
+            
             // Configure SQLite Database for Shelter Cache
             builder.Services.AddDbContext<ShelterDbContext>(options =>
                 options.UseSqlite(builder.Configuration.GetConnectionString("ShelterCache") 

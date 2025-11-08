@@ -4,7 +4,7 @@ namespace Backend.Controllers
 {
     /// <summary>
     /// MVC Controller for serving Admin web interface views
-    /// Routes: /Admin/Index
+    /// Routes: /Admin/Index, /Admin/TriggerDisaster
     /// </summary>
     [Route("Admin")]
     public class AdminViewController : Controller
@@ -18,6 +18,16 @@ namespace Backend.Controllers
         public IActionResult Index()
         {
             return View("~/Views/Admin/Index.cshtml");
+        }
+
+        /// <summary>
+        /// Disaster trigger page
+        /// GET /Admin/TriggerDisaster
+        /// </summary>
+        [HttpGet("TriggerDisaster")]
+        public IActionResult TriggerDisaster()
+        {
+            return View("~/Views/Admin/TriggerDisaster.cshtml");
         }
     }
 }

@@ -16,6 +16,7 @@ namespace Backend.Data
         public DbSet<Shelter> Shelters { get; set; } = null!;
         public DbSet<CacheMetadata> CacheMetadata { get; set; } = null!;
         public DbSet<DisasterEvent> DisasterEvents { get; set; } = null!;
+        public DbSet<DeviceToken> DeviceTokens { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -63,6 +64,24 @@ namespace Backend.Data
                 // 建立索引以提高查詢效能
                 entity.HasIndex(e => e.CreatedAt);
                 entity.HasIndex(e => new { e.Lat, e.Lnt });
+            });
+
+            // 設定 DeviceToken 表
+            modelBuilder.Entity<DeviceToken>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Token).IsRequired().HasMaxLength(500);
+                entity.Property(e => e.DeviceId).HasMaxLength(200);
+                entity.Property(e => e.UserId).HasMaxLength(100);
+                entity.Property(e => e.Platform).HasMaxLength(50);
+                entity.Property(e => e.CreatedAt).IsRequired();
+                entity.Property(e => e.UpdatedAt).IsRequired();
+                entity.Property(e => e.IsActive).IsRequired();
+                
+                // 建立唯一索引確保同一個 Token 不會重複註冊
+                entity.HasIndex(e => e.Token).IsUnique();
+                entity.HasIndex(e => e.DeviceId);
+                entity.HasIndex(e => e.IsActive);
             });
         }
     }
