@@ -18,11 +18,9 @@ class _EventListViewState extends State<EventListView> {
   List<DisasterEvent> allEvents = [];
   List<DisasterEvent> filteredEvents = [];
   bool isLoading = true;
-  
-  // 查詢控制器
+
   final TextEditingController searchController = TextEditingController();
-  
-  // 所有可用的標籤
+
   final List<String> allTags = [
     '道路阻塞',
     '淹水',
@@ -33,8 +31,7 @@ class _EventListViewState extends State<EventListView> {
     '人員受傷',
     '人員傷亡',
   ];
-  
-  // 選中的標籤
+
   Set<String> selectedTags = {};
 
   @override
@@ -55,10 +52,8 @@ class _EventListViewState extends State<EventListView> {
       isLoading = true;
     });
 
-    // 模擬 API 呼叫延遲
     await Future.delayed(const Duration(seconds: 1));
 
-    // 載入假資料
     setState(() {
       allEvents = DisasterEvent.getMockData();
       filteredEvents = allEvents;
@@ -67,15 +62,14 @@ class _EventListViewState extends State<EventListView> {
   }
 
   void _filterEvents() {
+    final searchText = searchController.text.toLowerCase().trim();
+
     setState(() {
       filteredEvents = allEvents.where((event) {
-        // 搜尋過濾
-        final searchText = searchController.text.toLowerCase();
         final matchesSearch = searchText.isEmpty ||
             event.title.toLowerCase().contains(searchText) ||
             event.description.toLowerCase().contains(searchText);
 
-        // 標籤過濾
         final matchesTags = selectedTags.isEmpty ||
             event.tags.any((tag) => selectedTags.contains(tag));
 
@@ -121,7 +115,7 @@ class _EventListViewState extends State<EventListView> {
       ),
       body: Column(
         children: [
-          // 搜尋欄
+          // 🔍 搜尋欄
           Padding(
             padding: const EdgeInsets.all(16),
             child: TextField(
@@ -152,7 +146,7 @@ class _EventListViewState extends State<EventListView> {
             ),
           ),
 
-          // 標籤篩選區
+          // 🏷️ 標籤篩選區
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12),
             child: Column(
@@ -184,6 +178,7 @@ class _EventListViewState extends State<EventListView> {
                   children: allTags.map((tag) {
                     final isSelected = selectedTags.contains(tag);
                     return FilterChip(
+                      showCheckmark: false, 
                       label: TPText(
                         tag,
                         style: TPTextStyles.bodyRegular,
@@ -193,7 +188,6 @@ class _EventListViewState extends State<EventListView> {
                       onSelected: (_) => _toggleTag(tag),
                       backgroundColor: TPColors.grayscale100,
                       selectedColor: _getTagColor(tag),
-                      checkmarkColor: TPColors.white,
                       side: BorderSide(
                         color: isSelected
                             ? _getTagColor(tag)
@@ -210,7 +204,7 @@ class _EventListViewState extends State<EventListView> {
             ),
           ),
 
-          // 結果數量顯示
+          // 結果顯示
           if (selectedTags.isNotEmpty || searchController.text.isNotEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -227,31 +221,28 @@ class _EventListViewState extends State<EventListView> {
 
           const Divider(height: 1),
 
-          // 事件列表
+          // 📋 事件列表
           Expanded(
             child: isLoading
-                ? const Center(
-                    child: CircularProgressIndicator(),
-                  )
+                ? const Center(child: CircularProgressIndicator())
                 : filteredEvents.isEmpty
                     ? Center(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Icon(
-                              Icons.search_off_rounded,
-                              size: 64,
-                              color: TPColors.grayscale400,
-                            ),
+                            const Icon(Icons.search_off_rounded,
+                                size: 64, color: TPColors.grayscale400),
                             const SizedBox(height: 16),
                             TPText(
-                              selectedTags.isNotEmpty || searchController.text.isNotEmpty
+                              selectedTags.isNotEmpty ||
+                                      searchController.text.isNotEmpty
                                   ? '沒有符合條件的事件'
                                   : '目前沒有災害事件',
                               style: TPTextStyles.h3Regular,
                               color: TPColors.grayscale500,
                             ),
-                            if (selectedTags.isNotEmpty || searchController.text.isNotEmpty)
+                            if (selectedTags.isNotEmpty ||
+                                searchController.text.isNotEmpty)
                               Padding(
                                 padding: const EdgeInsets.only(top: 8),
                                 child: TextButton(
