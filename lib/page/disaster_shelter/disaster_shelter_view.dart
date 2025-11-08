@@ -1,4 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:town_pass/page/disaster_shelter/event_list_view.dart';
+import 'package:town_pass/util/tp_app_bar.dart';
+import 'package:town_pass/util/tp_button.dart';
+import 'package:town_pass/util/tp_colors.dart';
+import 'package:town_pass/util/tp_text.dart';
 
 class DisasterShelterView extends StatefulWidget {
   const DisasterShelterView({super.key});
@@ -11,18 +17,98 @@ class _DisasterShelterViewState extends State<DisasterShelterView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('避難導航'),
+      backgroundColor: TPColors.white,
+      appBar: const TPAppBar(
+        title: '避難導航',
       ),
-      body: const Center(
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('避難收容處所資訊'),
-            SizedBox(height: 16),
-            Text('災害發生時提供避難路線'),
-            // TODO: 在這裡加入您的微服務功能
+            _buildFeatureCard(
+              title: '災害事件列表',
+              description: '查看目前發生的災害事件',
+              icon: Icons.warning_amber_rounded,
+              color: TPColors.red500,
+              onTap: () => Get.to(() => const EventListView()),
+            ),
+            const SizedBox(height: 16),
+            _buildFeatureCard(
+              title: '避難收容處所',
+              description: '尋找附近的避難收容處所',
+              icon: Icons.home_rounded,
+              color: TPColors.primary500,
+              onTap: () {
+                // TODO: 導航到避難所列表
+              },
+            ),
+            const SizedBox(height: 16),
+            _buildFeatureCard(
+              title: '通報災情',
+              description: '上傳災害現場資訊',
+              icon: Icons.upload_rounded,
+              color: TPColors.orange500,
+              onTap: () {
+                // TODO: 導航到上傳事件
+              },
+            ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFeatureCard({
+    required String title,
+    required String description,
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, size: 32, color: color),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TPText(
+                      title,
+                      style: TPTextStyles.h3SemiBold,
+                      color: TPColors.grayscale900,
+                    ),
+                    const SizedBox(height: 4),
+                    TPText(
+                      description,
+                      style: TPTextStyles.bodyRegular,
+                      color: TPColors.grayscale600,
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right, color: TPColors.grayscale400),
+            ],
+          ),
         ),
       ),
     );

@@ -1,0 +1,79 @@
+class DisasterEvent {
+  final String id;
+  final String img;
+  final List<String> tags;
+  final String title;
+  final String description;
+  final String lat;
+  final String lng;
+
+  const DisasterEvent({
+    required this.id,
+    required this.img,
+    required this.tags,
+    required this.title,
+    required this.description,
+    required this.lat,
+    required this.lng,
+  });
+
+  // 假資料
+  static List<DisasterEvent> getMockData() {
+    return [
+      const DisasterEvent(
+        id: '1',
+        img: 'https://images.unsplash.com/photo-1547683905-f686c993aae5?w=800',
+        tags: ['淹水', '道路阻塞'],
+        title: '信義區淹水災情',
+        description: '信義區多處道路淹水，部分路段已封閉，請民眾避免前往',
+        lat: '25.0330',
+        lng: '121.5654',
+      ),
+      const DisasterEvent(
+        id: '2',
+        img: 'https://images.unsplash.com/photo-1559827260-dc66d52bef19?w=800',
+        tags: ['道路阻塞', '建物損壞'],
+        title: '陽明山土石流',
+        description: '陽明山區發生土石流，仰德大道部分路段中斷',
+        lat: '25.1551',
+        lng: '121.5491',
+      ),
+      const DisasterEvent(
+        id: '3',
+        img: 'https://images.unsplash.com/photo-1611273426858-450d8e3c9fce?w=800',
+        tags: ['火災', '人員受困'],
+        title: '大安區建築火警',
+        description: '大安區某大樓發生火警，消防隊已到場處理，有人員受困',
+        lat: '25.0262',
+        lng: '121.5436',
+      ),
+      const DisasterEvent(
+        id: '4',
+        img: 'https://images.unsplash.com/photo-1504609773096-104ff2c73ba4?w=800',
+        tags: ['停電'],
+        title: '松山區大範圍停電',
+        description: '松山區多處停電，台電搶修中，預計2小時內恢復供電',
+        lat: '25.0500',
+        lng: '121.5770',
+      ),
+      const DisasterEvent(
+        id: '5',
+        img: 'https://images.unsplash.com/photo-1589519160732-57fc498494f8?w=800',
+        tags: ['建物損壞', '人員受傷'],
+        title: '南港區建物龜裂',
+        description: '地震後發現某大樓外牆龜裂，已疏散居民，有輕傷人員',
+        lat: '25.0527',
+        lng: '121.6069',
+      ),
+      const DisasterEvent(
+        id: '6',
+        img: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800',
+        tags: ['火災', '人員傷亡', '建物損壞'],
+        title: '中山區工廠大火',
+        description: '中山區工廠發生嚴重火災，造成人員傷亡，建物嚴重損毀',
+        lat: '25.0636',
+        lng: '121.5260',
+      ),
+    ];
+  }
+}
