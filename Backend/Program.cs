@@ -12,8 +12,10 @@ namespace Backend
             builder.Services.AddControllersWithViews();
             builder.Services.AddHttpClient();
             
-            // Register AirRaidShelterService
+            // Register Shelter Services
             builder.Services.AddHttpClient<AirRaidShelterService>();
+            builder.Services.AddHttpClient<NaturalDisasterShelterService>();
+            builder.Services.AddScoped<UnifiedShelterService>();
 
             var app = builder.Build();
 

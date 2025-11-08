@@ -1,6 +1,6 @@
 # Town Pass API 文件
 
-版本：v1.0  
+版本：v1.1  
 更新日期：2025-11-08
 
 ## 目錄
@@ -14,12 +14,20 @@
   - [健康檢查](#健康檢查)
   - [避難疏散 API](#避難疏散-api)
   - [避難所管理 API](#避難所管理-api)
+  - [統一避難所 API (新增)](#統一避難所-api)
+  - [防空避難所 API (新增)](#防空避難所-api)
 
 ---
 
 ## 概述
 
 Town Pass API 提供避難所管理和疏散相關的功能，支援避難所的 CRUD 操作、地理位置搜尋，以及即時可用性查詢。
+
+**v1.1 新增功能**:
+- 整合天然災害避難所和防空避難所
+- 支援多種災害類型篩選（水災、地震、土石流、海嘯、空襲）
+- 地理位置搜尋功能
+- 統一的避難所統計資訊
 
 ## 基礎資訊
 
@@ -489,6 +497,561 @@ curl -X DELETE "https://localhost:5001/api/shelters/3"
 
 ```json
 {
+  "type": "string (類別，例如: 一般住宅、學校)",
+  "name": "string (避難所名稱)",
+  "capacity": "integer (容納人數)",
+  "supportedDisasters": "integer (支援的災害類型，位元旗標)",
+  "accesibility": "boolean (是否有無障礙設施)",
+  "address": "string (地址)",
+  "latitude": "float (緯度)",
+  "longitude": "float (經度)",
+  "telephone": "string (聯絡電話，可選)",
+  "sizeInSquareMeters": "integer (面積平方公尺)"
+}
+```
+
+### DisasterTypes (災害類型)
+
+使用位元旗標表示多種災害類型：
+
+| 值 | 名稱 | 說明 |
+|---|------|------|
+| 0 | None | 無 |
+| 1 | Flooding | 水災 |
+| 2 | Earthquake | 地震 |
+| 4 | Landslide | 土石流 |
+| 8 | Tsunami | 海嘯 |
+| 16 | AirRaid | 空襲 |
+
+---
+
+## 統一避難所 API
+
+### 1. 取得所有避難所（包含天然災害和防空）
+
+**端點**: `GET /api/shelter/all`
+
+**描述**: 取得系統中所有類型的避難所（天然災害 + 防空避難所）
+
+**請求範例**:
+```bash
+curl -X GET "https://localhost:5001/api/shelter/all"
+```
+
+**回應範例**:
+```json
+{
+  "success": true,
+  "count": 1500,
+  "data": [
+    {
+      "type": "學校",
+      "name": "中正國小",
+      "capacity": 300,
+      "supportedDisasters": 15,
+      "accesibility": true,
+      "address": "台北市中正區",
+      "latitude": 25.0375,
+      "longitude": 121.5645,
+      "telephone": "02-12345678",
+      "sizeInSquareMeters": 500
+    },
+    {
+      "type": "一般住宅",
+      "name": "私人住宅大樓",
+      "capacity": 400,
+      "supportedDisasters": 16,
+      "accesibility": false,
+      "address": "臺北市大同區環河北路一段343號",
+      "latitude": 25.060258,
+      "longitude": 121.508605,
+      "telephone": null,
+      "sizeInSquareMeters": 0
+    }
+  ]
+}
+```
+
+**狀態碼**:
+- `200 OK` - 成功取得列表
+- `500 Internal Server Error` - 伺服器錯誤
+
+---
+
+### 2. 根據災害類型篩選避難所
+
+**端點**: `GET /api/shelter/by-disaster`
+
+**描述**: 根據指定的災害類型篩選避難所（支援所有類型）
+
+**查詢參數**:
+
+| 參數 | 類型 | 必填 | 說明 |
+|------|------|------|------|
+| type | string | 是 | 災害類型: None, Flooding, Earthquake, Landslide, Tsunami, AirRaid |
+
+**請求範例**:
+```bash
+# 取得支援防空避難的避難所
+curl -X GET "https://localhost:5001/api/shelter/by-disaster?type=AirRaid"
+
+# 取得支援地震避難的避難所
+curl -X GET "https://localhost:5001/api/shelter/by-disaster?type=Earthquake"
+```
+
+**回應範例**:
+```json
+{
+  "success": true,
+  "disasterType": "AirRaid",
+  "count": 300,
+  "data": [
+    {
+      "type": "一般住宅",
+      "name": "公寓",
+      "capacity": 73,
+      "supportedDisasters": 16,
+      "accesibility": false,
+      "address": "臺北市大同區涼州街116號",
+      "latitude": 25.060459,
+      "longitude": 121.509074,
+      "telephone": null,
+      "sizeInSquareMeters": 0
+    }
+  ]
+}
+```
+
+**狀態碼**:
+- `200 OK` - 成功取得列表
+- `400 Bad Request` - 無效的災害類型
+- `500 Internal Server Error` - 伺服器錯誤
+
+---
+
+### 3. 根據區域篩選避難所
+
+**端點**: `GET /api/shelter/by-district`
+
+**描述**: 根據區域名稱篩選避難所
+
+**查詢參數**:
+
+| 參數 | 類型 | 必填 | 說明 |
+|------|------|------|------|
+| district | string | 是 | 區域名稱（例如: 中正區、大同區） |
+
+**請求範例**:
+```bash
+curl -X GET "https://localhost:5001/api/shelter/by-district?district=中正區"
+```
+
+**回應範例**:
+```json
+{
+  "success": true,
+  "district": "中正區",
+  "count": 50,
+  "data": [...]
+}
+```
+
+**狀態碼**:
+- `200 OK` - 成功取得列表
+- `400 Bad Request` - 未提供區域名稱
+- `500 Internal Server Error` - 伺服器錯誤
+
+---
+
+### 4. 根據最小容量篩選避難所
+
+**端點**: `GET /api/shelter/by-capacity`
+
+**描述**: 根據最小容納人數篩選避難所
+
+**查詢參數**:
+
+| 參數 | 類型 | 必填 | 預設值 | 說明 |
+|------|------|------|--------|------|
+| minCapacity | integer | 否 | 0 | 最小容納人數 |
+
+**請求範例**:
+```bash
+curl -X GET "https://localhost:5001/api/shelter/by-capacity?minCapacity=100"
+```
+
+**回應範例**:
+```json
+{
+  "success": true,
+  "minCapacity": 100,
+  "count": 200,
+  "data": [...]
+}
+```
+
+**狀態碼**:
+- `200 OK` - 成功取得列表
+- `500 Internal Server Error` - 伺服器錯誤
+
+---
+
+### 5. 根據名稱搜尋避難所
+
+**端點**: `GET /api/shelter/search`
+
+**描述**: 根據名稱關鍵字搜尋避難所（包含所有類型）
+
+**查詢參數**:
+
+| 參數 | 類型 | 必填 | 說明 |
+|------|------|------|------|
+| name | string | 是 | 搜尋關鍵字 |
+
+**請求範例**:
+```bash
+curl -X GET "https://localhost:5001/api/shelter/search?name=學校"
+```
+
+**回應範例**:
+```json
+{
+  "success": true,
+  "keyword": "學校",
+  "count": 80,
+  "data": [...]
+}
+```
+
+**狀態碼**:
+- `200 OK` - 成功取得列表
+- `400 Bad Request` - 未提供搜尋關鍵字
+- `500 Internal Server Error` - 伺服器錯誤
+
+---
+
+### 6. 取得有無障礙設施的避難所
+
+**端點**: `GET /api/shelter/accessible`
+
+**描述**: 取得所有有無障礙設施的避難所
+
+**請求範例**:
+```bash
+curl -X GET "https://localhost:5001/api/shelter/accessible"
+```
+
+**回應範例**:
+```json
+{
+  "success": true,
+  "count": 800,
+  "data": [...]
+}
+```
+
+**狀態碼**:
+- `200 OK` - 成功取得列表
+- `500 Internal Server Error` - 伺服器錯誤
+
+---
+
+### 7. 取得避難所統計資訊
+
+**端點**: `GET /api/shelter/statistics`
+
+**描述**: 取得所有避難所的統計資訊，包含分類統計
+
+**請求範例**:
+```bash
+curl -X GET "https://localhost:5001/api/shelter/statistics"
+```
+
+**回應範例**:
+```json
+{
+  "success": true,
+  "totalShelters": 1500,
+  "totalCapacity": 50000,
+  "shelterTypes": {
+    "naturalDisaster": {
+      "totalCount": 1200,
+      "totalCapacity": 45000,
+      "averageCapacity": 37,
+      "accessibleCount": 800
+    },
+    "airRaid": {
+      "totalCount": 300,
+      "totalCapacity": 5000,
+      "averageCapacity": 16,
+      "accessibleCount": 0
+    }
+  },
+  "disasterSupport": {
+    "flooding": 500,
+    "earthquake": 800,
+    "landslide": 300,
+    "tsunami": 100,
+    "airRaid": 300
+  },
+  "largestShelter": {
+    "name": "台北市政府大樓",
+    "capacity": 500
+  },
+  "smallestShelter": {
+    "name": "小型避難所",
+    "capacity": 10
+  }
+}
+```
+
+**狀態碼**:
+- `200 OK` - 成功取得統計資訊
+- `500 Internal Server Error` - 伺服器錯誤
+
+---
+
+### 8. 搜尋附近的避難所
+
+**端點**: `GET /api/shelter/nearby`
+
+**描述**: 根據經緯度座標搜尋指定半徑內的避難所
+
+**查詢參數**:
+
+| 參數 | 類型 | 必填 | 預設值 | 說明 |
+|------|------|------|--------|------|
+| latitude | number | 是 | - | 緯度（-90 到 90） |
+| longitude | number | 是 | - | 經度（-180 到 180） |
+| radius | number | 否 | 5.0 | 搜尋半徑（公里，最大 100） |
+
+**請求範例**:
+```bash
+# 尋找台北車站附近 2 公里內的避難所
+curl -X GET "https://localhost:5001/api/shelter/nearby?latitude=25.0478&longitude=121.5170&radius=2"
+```
+
+**回應範例**:
+```json
+{
+  "success": true,
+  "searchLocation": {
+    "latitude": 25.0478,
+    "longitude": 121.5170
+  },
+  "radiusInKm": 2.0,
+  "count": 15,
+  "data": [
+    {
+      "type": "一般住宅",
+      "name": "公寓",
+      "capacity": 73,
+      "supportedDisasters": 16,
+      "accesibility": false,
+      "address": "臺北市大同區涼州街116號",
+      "latitude": 25.060459,
+      "longitude": 121.509074,
+      "telephone": null,
+      "sizeInSquareMeters": 0
+    }
+  ]
+}
+```
+
+**狀態碼**:
+- `200 OK` - 成功取得列表
+- `400 Bad Request` - 座標參數無效或半徑超出範圍
+- `500 Internal Server Error` - 伺服器錯誤
+
+---
+
+## 防空避難所 API
+
+### 1. 取得所有防空避難所
+
+**端點**: `GET /api/airraidshelter`
+
+**描述**: 取得所有防空避難所資料（從 Google Maps KML 獲取）
+
+**請求範例**:
+```bash
+curl -X GET "https://localhost:5001/api/airraidshelter"
+```
+
+**回應範例**:
+```json
+[
+  {
+    "category": "一般住宅",
+    "computerId": "WYA01050",
+    "name": "公寓",
+    "village": "大有里",
+    "address": "臺北市大同區涼州街116號",
+    "latitude": 25.060459,
+    "longitude": 121.509074,
+    "undergroundFloor": "B01",
+    "capacity": 73,
+    "precinct": "大同分局",
+    "notes": ""
+  }
+]
+```
+
+**狀態碼**:
+- `200 OK` - 成功取得列表
+- `500 Internal Server Error` - 伺服器錯誤
+
+---
+
+### 2. 根據轄區篩選防空避難所
+
+**端點**: `GET /api/airraidshelter/precinct/{precinct}`
+
+**描述**: 根據警察分局轄區篩選防空避難所
+
+**路徑參數**:
+
+| 參數 | 類型 | 說明 |
+|------|------|------|
+| precinct | string | 轄區名稱（例如: 大同分局） |
+
+**請求範例**:
+```bash
+curl -X GET "https://localhost:5001/api/airraidshelter/precinct/大同分局"
+```
+
+**回應範例**:
+```json
+[
+  {
+    "category": "一般住宅",
+    "computerId": "WYA01050",
+    "name": "公寓",
+    "village": "大有里",
+    "address": "臺北市大同區涼州街116號",
+    "latitude": 25.060459,
+    "longitude": 121.509074,
+    "undergroundFloor": "B01",
+    "capacity": 73,
+    "precinct": "大同分局",
+    "notes": ""
+  }
+]
+```
+
+**狀態碼**:
+- `200 OK` - 成功取得列表
+- `404 Not Found` - 找不到該轄區的避難所
+- `500 Internal Server Error` - 伺服器錯誤
+
+---
+
+### 3. 根據村里篩選防空避難所
+
+**端點**: `GET /api/airraidshelter/village/{village}`
+
+**描述**: 根據村里名稱篩選防空避難所
+
+**路徑參數**:
+
+| 參數 | 類型 | 說明 |
+|------|------|------|
+| village | string | 村里名稱（例如: 大有里） |
+
+**請求範例**:
+```bash
+curl -X GET "https://localhost:5001/api/airraidshelter/village/大有里"
+```
+
+**狀態碼**:
+- `200 OK` - 成功取得列表
+- `404 Not Found` - 找不到該村里的避難所
+- `500 Internal Server Error` - 伺服器錯誤
+
+---
+
+### 4. 搜尋附近的防空避難所
+
+**端點**: `GET /api/airraidshelter/nearby`
+
+**描述**: 根據經緯度座標搜尋指定半徑內的防空避難所
+
+**查詢參數**:
+
+| 參數 | 類型 | 必填 | 預設值 | 說明 |
+|------|------|------|--------|------|
+| latitude | number | 是 | - | 緯度（-90 到 90） |
+| longitude | number | 是 | - | 經度（-180 到 180） |
+| radius | number | 否 | 5.0 | 搜尋半徑（公里，最大 100） |
+
+**請求範例**:
+```bash
+curl -X GET "https://localhost:5001/api/airraidshelter/nearby?latitude=25.060459&longitude=121.509074&radius=1"
+```
+
+**回應範例**:
+```json
+{
+  "searchLocation": {
+    "latitude": 25.060459,
+    "longitude": 121.509074
+  },
+  "radiusInKm": 1.0,
+  "count": 3,
+  "shelters": [...]
+}
+```
+
+**狀態碼**:
+- `200 OK` - 成功取得列表
+- `400 Bad Request` - 座標參數無效或半徑超出範圍
+- `500 Internal Server Error` - 伺服器錯誤
+
+---
+
+### 5. 從自訂 URL 匯入防空避難所資料
+
+**端點**: `POST /api/airraidshelter/import`
+
+**描述**: 從自訂的 KML URL 匯入防空避難所資料
+
+**請求 Body**:
+
+| 欄位 | 類型 | 必填 | 說明 |
+|------|------|------|------|
+| url | string | 是 | KML 資料來源 URL |
+
+**請求範例**:
+```bash
+curl -X POST "https://localhost:5001/api/airraidshelter/import" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://www.google.com/maps/d/u/0/kml?mid=XXXXX"
+  }'
+```
+
+**回應範例**:
+```json
+{
+  "source": "https://www.google.com/maps/d/u/0/kml?mid=XXXXX",
+  "count": 300,
+  "shelters": [...]
+}
+```
+
+**狀態碼**:
+- `200 OK` - 成功匯入
+- `400 Bad Request` - URL 格式錯誤或為空
+- `500 Internal Server Error` - 伺服器錯誤
+
+---
+
+## 資料模型
+
+### Shelter (避難所)
+
+```json
+{
   "id": "integer (唯一識別碼)",
   "name": "string (避難所名稱)",
   "address": "string (地址)",
@@ -882,6 +1445,15 @@ A: 目前是硬刪除，無法復原。建議使用 `isActive=false` 代替刪�
 ---
 
 ## 版本歷史
+
+### v1.1 (2025-11-08)
+- **新增**: 統一避難所 API - 整合天然災害和防空避難所
+- **新增**: 防空避難所 API - 從 Google Maps KML 獲取資料
+- **新增**: 支援災害類型篩選（Flooding, Earthquake, Landslide, Tsunami, AirRaid）
+- **新增**: 地理位置附近搜尋功能
+- **新增**: 分類統計資訊 API
+- **改進**: 重構服務層架構，使用 UnifiedShelterService
+- **改進**: 更完整的錯誤處理和日誌記錄
 
 ### v1.0 (2025-11-08)
 - 初始版本
