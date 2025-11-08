@@ -18,53 +18,6 @@ namespace Backend.Controllers
         }
 
         /// <summary>
-        /// 將 NaturalDisasterShelter 轉換為 Shelter
-        /// </summary>
-        private Shelter ConvertToShelter(NaturalDisasterShelter source)
-        {
-            if (source == null)
-                throw new ArgumentNullException(nameof(source));
-
-            // 解析災害類型
-            var supportedDisasters = DisasterTypes.None; // 預設支援空襲
-
-            if (!string.IsNullOrEmpty(source.FloodDisaster) && (source.FloodDisaster == "Y" || source.FloodDisaster == "備用"))
-                supportedDisasters |= DisasterTypes.Flooding;
-
-            if (!string.IsNullOrEmpty(source.EarthquakeDisaster) && (source.EarthquakeDisaster == "Y" || source.EarthquakeDisaster == "備用"))
-                supportedDisasters |= DisasterTypes.Earthquake;
-
-            if (!string.IsNullOrEmpty(source.Landslide) && (source.Landslide == "Y" || source.Landslide == "備用"))
-                supportedDisasters |= DisasterTypes.Landslide;
-
-            if (!string.IsNullOrEmpty(source.Tsunami) && (source.Tsunami == "是" || source.Tsunami == "備用"))
-                supportedDisasters |= DisasterTypes.Tsunami;
-
-            // 解析容納人數
-            int.TryParse(source.Capacity?.Trim(), out int capacity);
-
-            // 解析面積
-            int.TryParse(source.Area?.Trim(), out int area);
-
-            // 解析無障礙設施
-            bool hasAccessibility = !string.IsNullOrEmpty(source.AccessibleFacilities) && source.AccessibleFacilities == "是";
-
-            return new Shelter
-            {
-                Type = source.Type,
-                Name = source.Name ?? "未命名收容所",
-                Capacity = capacity,
-                SupportedDisasters = supportedDisasters,
-                Accesibility = hasAccessibility,
-                Address = source.Address ?? "",
-                Latitude = 0, // 需要從地址進行地理編碼或從其他來源取得
-                Longitude = 0, // 需要從地址進行地理編碼或從其他來源取得
-                Telephone = source.ContactPersonPhone ?? source.ManagerPhone,
-                SizeInSquareMeters = area
-            };
-        }
-
-        /// <summary>
         /// 從 API 獲取並轉換收容所資料
         /// </summary>
         private async Task<List<Shelter>> FetchAndConvertShelters()
@@ -81,7 +34,7 @@ namespace Backend.Controllers
                 PropertyNameCaseInsensitive = true
             });
 
-            return shelterResponse?.Result?.Results?.Select(x => ConvertToShelter(x)).ToList() ?? new List<Shelter>();
+            return shelterResponse?.Result?.Results?.Select(x => x.ConvertToShelter()).ToList() ?? new List<Shelter>();
         }
 
         /// <summary>
@@ -177,7 +130,7 @@ namespace Backend.Controllers
 
                 var filteredOriginal = shelterResponse?.Result?.Results?
                     .Where(s => s.District?.Contains(district, StringComparison.OrdinalIgnoreCase) == true)
-                    .Select(s => ConvertToShelter(s))
+                    .Select(s => s.ConvertToShelter())
                     .ToList() ?? new List<Shelter>();
 
                 return Ok(new
