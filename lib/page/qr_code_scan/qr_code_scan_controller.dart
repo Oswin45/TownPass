@@ -27,14 +27,22 @@ class QRCodeScanController extends GetxController {
     super.onInit();
 
     _subscription = scanController.barcodes.listen((capture) async {
+      // Stop the camera stream as soon as we have a result to free ImageReader buffers
+      try {
+        await scanController.stop();
+      } catch (_) {}
+
       await _subscription?.cancel();
       Get.back(result: capture.barcodes.first.displayValue);
     });
   }
 
   @override
-  void dispose() async {
-    await scanController.dispose();
-    super.dispose();
+  void onClose() {
+    // Dispose controller synchronously to ensure native resources are released
+    try {
+      scanController.dispose();
+    } catch (_) {}
+    super.onClose();
   }
 }
