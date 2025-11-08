@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:get/get.dart';
-import 'package:town_pass/gen/assets.gen.dart';
 import 'package:town_pass/util/tp_route.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 import 'dart:async';
@@ -10,6 +9,7 @@ import 'dart:ui' as ui;
 import 'dart:typed_data';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:geolocator/geolocator.dart';
+import 'package:dio/dio.dart';
 import 'package:town_pass/page/disaster_shelter/event_list_view.dart';
 import 'package:town_pass/page/disaster_shelter/shelter_list_view.dart';
 import 'package:town_pass/page/disaster_shelter/upload_event_view.dart';
@@ -69,6 +69,10 @@ class _DisasterShelterViewState extends State<DisasterShelterView> {
   _loadShelters();
   // load emergency wells from bundled JSON
   _loadWells();
+  // load disaster events (local mock or bundled)
+  _loadEvents();
+  // try fetching events from remote API (overrides local mock if available)
+  _fetchEventsFromServer();
 
   // initialize device location (ask permission and set marker/camera)
   _initLocation();
@@ -257,6 +261,8 @@ class _DisasterShelterViewState extends State<DisasterShelterView> {
 
   // Load emergency wells from bundled JSON and parse into simple model
   List<EmergencyWell> _allWells = [];
+  List<EventItem> _allEvents = [];
+  bool _showEvents = true; // whether to render disaster events on the map
 
   Future<void> _loadWells() async {
     try {
@@ -283,6 +289,67 @@ class _DisasterShelterViewState extends State<DisasterShelterView> {
       _updateVisibleMarkers();
     } catch (e) {
       debugPrint('[\u203A_loadWells] failed to load wells: $e');
+    }
+  }
+
+  // Load events from bundled JSON and parse into simple model
+  Future<void> _loadEvents() async {
+    try {
+      String jsonStr = await rootBundle.loadString('assets/mock_data/events.json');
+      final decoded = json.decode(jsonStr);
+      List<dynamic>? rawList;
+      if (decoded is List) rawList = decoded;
+      else if (decoded is Map && decoded['data'] is List) rawList = decoded['data'] as List<dynamic>;
+
+      if (rawList != null) {
+        _allEvents = rawList.map((e) {
+          try {
+            return EventItem.fromJson(e as Map<String, dynamic>);
+          } catch (_) {
+            return EventItem.empty();
+          }
+        }).where((ev) => ev.isValid).toList();
+        debugPrint('[\u203A_loadEvents] loaded ${_allEvents.length} events');
+      } else {
+        debugPrint('[\u203A_loadEvents] no events found in asset');
+      }
+
+      // update markers to include events
+      _updateVisibleMarkers();
+    } catch (e) {
+      debugPrint('[\u203A_loadEvents] failed to load events: $e');
+    }
+  }
+
+  // Try fetching events from remote API. If successful, override local events.
+  Future<void> _fetchEventsFromServer() async {
+    const url = 'https://shelter.sausage.party/api/DisasterEvent';
+    try {
+      final dio = Dio();
+      final resp = await dio.get(url);
+      debugPrint('[\u203A_fetchEvents] status=${resp.statusCode}');
+      if (resp.statusCode == 200) {
+        final data = resp.data;
+        List<dynamic>? rawList;
+        if (data is List) rawList = data;
+        else if (data is Map && data['data'] is List) rawList = data['data'] as List<dynamic>;
+
+        if (rawList != null) {
+          _allEvents = rawList.map((e) {
+            try {
+              return EventItem.fromJson(e as Map<String, dynamic>);
+            } catch (_) {
+              return EventItem.empty();
+            }
+          }).where((ev) => ev.isValid).toList();
+          debugPrint('[\u203A_fetchEvents] loaded ${_allEvents.length} events from server');
+          _updateVisibleMarkers();
+          return;
+        }
+      }
+      debugPrint('[\u203A_fetchEvents] no events returned by server');
+    } catch (e) {
+      debugPrint('[\u203A_fetchEvents] fetch failed: $e');
     }
   }
 
@@ -380,7 +447,8 @@ class _DisasterShelterViewState extends State<DisasterShelterView> {
     final baseMarkers = _markers
       .where((m) => !(m.markerId.value.startsWith('shelter_') ||
         m.markerId.value.startsWith('cluster_') ||
-        m.markerId.value.startsWith('well_')))
+        m.markerId.value.startsWith('well_') ||
+        m.markerId.value.startsWith('event_')))
       .toSet();
 
       final List<Marker> newShelterMarkers = [];
@@ -461,12 +529,30 @@ class _DisasterShelterViewState extends State<DisasterShelterView> {
         }
       }
 
+      // create event markers (green) from loaded events
+      final List<Marker> eventMarkers = [];
+      if (_showEvents) {
+        for (var i = 0; i < _allEvents.length; i++) {
+          final ev = _allEvents[i];
+          if (!ev.isValid) continue;
+          final markerId = ev.id.isNotEmpty ? 'event_${ev.id}' : 'event_$i';
+          eventMarkers.add(Marker(
+            markerId: MarkerId(markerId),
+            position: LatLng(ev.latitude, ev.longitude),
+            infoWindow: InfoWindow(title: ev.title, snippet: ev.description),
+            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+            zIndex: 3.0,
+          ));
+        }
+      }
+
       setState(() {
         _markers
           ..clear()
           ..addAll(baseMarkers)
           ..addAll(newShelterMarkers)
-          ..addAll(wellMarkers);
+          ..addAll(wellMarkers)
+          ..addAll(eventMarkers);
       });
     } catch (e) {
       // ignore errors from getVisibleRegion or marker updates
@@ -616,6 +702,12 @@ class _DisasterShelterViewState extends State<DisasterShelterView> {
                 const SizedBox(width: 10),
                 TPText('戰備井', style: TPTextStyles.caption, color: TPColors.grayscale800),
               ]),
+              const SizedBox(height: 10),
+              Row(children: [
+                Container(width: 18, height: 18, decoration: BoxDecoration(color: Colors.green, shape: BoxShape.circle)),
+                const SizedBox(width: 10),
+                TPText('災情事件', style: TPTextStyles.caption, color: TPColors.grayscale800),
+              ]),
               const SizedBox(height: 14),
               Align(
                 alignment: Alignment.centerRight,
@@ -737,6 +829,7 @@ class _DisasterShelterViewState extends State<DisasterShelterView> {
     int tempDisasters = _selectedDisasters;
   int? tempCapacity = _capacityFilter;
   bool tempShowWells = _showWells;
+  bool tempShowEvents = _showEvents;
         return StatefulBuilder(builder: (c, setS) {
           return Padding(
             padding:
@@ -813,6 +906,14 @@ class _DisasterShelterViewState extends State<DisasterShelterView> {
                   subtitle: const TPText('在地圖上顯示/隱藏戰備井圖層'),
                   activeColor: TPColors.orange500,
                 ),
+                const SizedBox(height: 8),
+                SwitchListTile(
+                  value: tempShowEvents,
+                  onChanged: (v) => setS(() => tempShowEvents = v),
+                  title: const TPText('顯示災情事件', style: TPTextStyles.caption),
+                  subtitle: const TPText('在地圖上顯示/隱藏災情事件圖層'),
+                  activeColor: Colors.green,
+                ),
                 const SizedBox(height: 12),
                 Row(
                   children: [
@@ -826,6 +927,7 @@ class _DisasterShelterViewState extends State<DisasterShelterView> {
                             _selectedDisasters = tempDisasters;
                             _capacityFilter = tempCapacity;
                             _showWells = tempShowWells;
+                            _showEvents = tempShowEvents;
                           });
                           _updateVisibleMarkers();
                           Navigator.of(ctx).pop();
@@ -1403,4 +1505,73 @@ class EmergencyWell {
         address = '',
         latitude = 0.0,
         longitude = 0.0;
+}
+
+// Simple Event model for disaster events (from local mock or server)
+class EventItem {
+  final String id;
+  final String title;
+  final String description;
+  final List<String> tags;
+  final double latitude;
+  final double longitude;
+  final DateTime? createdAt;
+
+  EventItem({
+    required this.id,
+    required this.title,
+    required this.description,
+    required this.tags,
+    required this.latitude,
+    required this.longitude,
+    this.createdAt,
+  });
+
+  bool get isValid => title.isNotEmpty && latitude != 0.0 && longitude != 0.0;
+
+  factory EventItem.fromJson(Map<String, dynamic> json) {
+    double parseDouble(dynamic v) {
+      if (v is double) return v;
+      if (v is int) return v.toDouble();
+      if (v is String) return double.tryParse(v) ?? 0.0;
+      return 0.0;
+    }
+
+    List<String> parseTags(dynamic v) {
+      if (v is List) return v.map((e) => e.toString()).toList();
+      if (v is String) return [v];
+      return [];
+    }
+
+    final lat = parseDouble(json['lat'] ?? json['latitude'] ?? json['y'] ?? json['latitude_deg'] ?? 0);
+    final lng = parseDouble(json['lnt'] ?? json['lng'] ?? json['longitude'] ?? json['x'] ?? 0);
+
+    DateTime? parsedAt;
+    if (json['createdAt'] != null) {
+      try {
+        parsedAt = DateTime.parse(json['createdAt'].toString());
+      } catch (_) {
+        parsedAt = null;
+      }
+    }
+
+    return EventItem(
+      id: json['id']?.toString() ?? '',
+      title: json['title']?.toString() ?? json['name']?.toString() ?? '災情事件',
+      description: json['description']?.toString() ?? json['desc']?.toString() ?? '',
+      tags: parseTags(json['tags'] ?? json['tag'] ?? json['categories']),
+      latitude: lat,
+      longitude: lng,
+      createdAt: parsedAt,
+    );
+  }
+
+  EventItem.empty()
+      : id = '',
+        title = '',
+        description = '',
+        tags = const [],
+        latitude = 0.0,
+        longitude = 0.0,
+        createdAt = null;
 }
