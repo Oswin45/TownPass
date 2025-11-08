@@ -11,9 +11,11 @@ public enum DisasterTypes
 }
 public class Shelter
 {
+    public int Id { get; set; }  // 資料庫自動遞增
     public string? Type { get; set; }
     public required string Name { get; set; }
     public int Capacity { get; set; }
+    public int CurrentOccupancy { get; set; } 
     public DisasterTypes SupportedDisasters { get; set; }
     public bool Accesibility { get; set; }
     public required string Address { get; set; }
