@@ -49,6 +49,7 @@ class _DisasterShelterViewState extends State<DisasterShelterView> {
       _capacityFilter; // null=any, 1=small(<100),2=medium(100-1000),3=large(>1000)
   int _visibleShelterCount = 0;
   bool _showWells = true; // whether to render emergency wells on the map
+  bool _isCheckedIn = false; // whether the user has checked in (安全抵達)
   // (no stored currentLatLng needed — markers contain current position)
 
   @override
@@ -637,6 +638,10 @@ class _DisasterShelterViewState extends State<DisasterShelterView> {
             ),
             ElevatedButton(
               onPressed: () {
+                // mark as checked-in, close dialog and show confirmation
+                setState(() {
+                  _isCheckedIn = true;
+                });
                 Navigator.of(ctx).pop();
                 // TODO: hook into backend/reporting if needed
                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('已記錄：安全抵達')));
@@ -1229,16 +1234,20 @@ class _DisasterShelterViewState extends State<DisasterShelterView> {
                         SizedBox(
                           width: double.infinity,
                           child: ElevatedButton(
-                            onPressed: _showCheckInDialog,
+                            onPressed: _isCheckedIn ? null : _showCheckInDialog,
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: TPColors.primary500,
+                              backgroundColor: _isCheckedIn ? Colors.grey : TPColors.primary500,
                               padding: const EdgeInsets.symmetric(vertical: 12),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                             ),
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
-                              children: const [
-                                TPText('已安全抵達避難所', style: TPTextStyles.bodySemiBold, color: TPColors.white),
+                              children: [
+                                TPText(
+                                  _isCheckedIn ? '您已安全的在避難所' : '已安全抵達避難所',
+                                  style: TPTextStyles.bodySemiBold,
+                                  color: TPColors.white,
+                                ),
                               ],
                             ),
                           ),
