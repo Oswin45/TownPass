@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:town_pass/util/tp_colors.dart';
 import 'package:town_pass/util/tp_app_bar.dart';
 import 'package:town_pass/util/tp_text.dart';
+import 'package:geolocator/geolocator.dart';
 
 class Shelter {
   final String name;
@@ -16,6 +17,9 @@ class Shelter {
   final bool accessible;
   final String phone;
   final double area;
+  final double latitude;
+  final double longitude;
+  double? distance;
 
   Shelter({
     required this.name,
@@ -27,6 +31,9 @@ class Shelter {
     required this.accessible,
     required this.phone,
     required this.area,
+    required this.latitude,
+    required this.longitude,
+    this.distance,
   });
 
   factory Shelter.fromJson(Map<String, dynamic> json) {
@@ -43,11 +50,16 @@ class Shelter {
       name: (json['name'] ?? '未命名避難所').toString(),
       address: (json['address'] ?? '無地址資訊').toString(),
       capacity: _asInt(json['capacity']),
-      currentPeople: _asInt(json['currentPeople'], defaultValue: 0),
+      currentPeople: _asInt(
+        json['currentPeople'] ?? json['currentOccupancy'],
+        defaultValue: 0,
+      ),
       type: (json['type'] ?? '未知類型').toString(),
       disasterTypes: _asInt(supportedDisasters),
       accessible: _asBool(accessibleRaw),
       phone: phoneRaw,
+      latitude: _asDouble(json['latitude']),
+      longitude: _asDouble(json['longitude']),
       area: _asDouble(areaRaw),
     );
   }
@@ -103,10 +115,29 @@ class _ShelterListViewState extends State<ShelterListView> {
   ];
   Set<int> selectedDisasters = {};
 
+  Position? _currentPosition;
+
   @override
   void initState() {
     super.initState();
     _loadShelters();
+    _getUserLocation();
+  }
+
+  Future<void> _getUserLocation() async {
+    try {
+      LocationPermission permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.deniedForever) return;
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) return;
+      }
+      _currentPosition = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high);
+      debugPrint('📍使用者位置：${_currentPosition!.latitude}, ${_currentPosition!.longitude}');
+    } catch (e) {
+      debugPrint('❌ 無法取得位置: $e');
+    }
   }
 
   Future<void> _loadShelters() async {
@@ -187,9 +218,49 @@ class _ShelterListViewState extends State<ShelterListView> {
     });
   }
 
-  void _sortShelters() {
-    if (sortMode == '未滿優先') {
-      filteredShelters.sort((a, b) => a.percentage.compareTo(b.percentage));
+  void _sortShelters() async {
+    if (sortMode == '距離由近到遠') {
+      // 取得使用者位置
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+      final userLat = position.latitude;
+      final userLng = position.longitude;
+
+      // 計算每個 shelter 的距離
+      for (final s in filteredShelters) {
+        s.distance = Geolocator.distanceBetween(
+          userLat,
+          userLng,
+          s.latitude,
+          s.longitude,
+        );
+      }
+
+      // 排序距離
+      filteredShelters.sort((a, b) {
+        final d1 = a.distance ?? double.infinity;
+        final d2 = b.distance ?? double.infinity;
+        return d1.compareTo(d2);
+      });
+
+      setState(() {}); // 刷新畫面
+    }
+    else if (sortMode == '未滿優先') {
+      // 顏色 + 距離排序（保留原有邏輯）
+      filteredShelters.sort((a, b) {
+        int getPriority(double p) {
+          if (p < 0.6) return 0; // 綠
+          if (p < 0.9) return 1; // 黃
+          return 2; // 紅
+        }
+
+        final pA = getPriority(a.percentage);
+        final pB = getPriority(b.percentage);
+        if (pA != pB) return pA.compareTo(pB);
+        return (a.distance ?? double.infinity)
+            .compareTo(b.distance ?? double.infinity);
+      });
     }
   }
 
@@ -218,8 +289,7 @@ class _ShelterListViewState extends State<ShelterListView> {
       ),
       isScrollControlled: true,
       builder: (context) => Padding(
-        padding:
-            const EdgeInsets.only(top: 20, left: 20, right: 20, bottom: 40),
+        padding: const EdgeInsets.only(top: 20, left: 20, right: 20, bottom: 40),
         child: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -244,8 +314,37 @@ class _ShelterListViewState extends State<ShelterListView> {
                 ),
               ),
               const SizedBox(height: 8),
-              Text(shelter.address,
-                  style: const TextStyle(color: TPColors.grayscale600)),
+              // ✅ 地址 + 距離並排
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      shelter.address,
+                      style: const TextStyle(color: TPColors.grayscale600),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  if (shelter.distance != null)
+                    Text(
+                      shelter.distance! < 1000
+                          ? '距離：${shelter.distance!.toStringAsFixed(0)} 公尺'
+                          : '距離：${(shelter.distance! / 1000).toStringAsFixed(2)} 公里',
+                      style: const TextStyle(
+                          color: TPColors.grayscale600, fontSize: 13),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              // ✅ 目前人數 / 總人數
+              Text(
+                '目前人數：${shelter.currentPeople}/${shelter.capacity}',
+                style: const TextStyle(
+                  color: TPColors.grayscale700,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
               const SizedBox(height: 20),
               _buildDetailRow('避難收容處所類型', shelter.type),
               _buildDetailRow(
@@ -464,29 +563,58 @@ Widget _buildFilterChips() {
       child: ListView.builder(
         itemCount: filteredShelters.length,
         itemBuilder: (context, index) {
-          final shelter = filteredShelters[index];
+          final s = filteredShelters[index];
+          final color = _getStatusColor(s.percentage);
+
           return Card(
             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
             ),
+            elevation: 3,
             child: ListTile(
-              onTap: () => _showShelterDetail(shelter),
-              leading: _buildStatusDot(shelter.percentage),
+              onTap: () => _showShelterDetail(s),
+              leading: Icon(Icons.circle, color: color, size: 14),
               title: Text(
-                shelter.name,
-                style: GoogleFonts.notoSans(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
+                s.name,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
                   color: TPColors.grayscale900,
                 ),
               ),
-              subtitle: Text(
-                shelter.address,
-                style: const TextStyle(color: TPColors.grayscale600),
+              // ✅ 地址 + 距離並排
+              subtitle: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      s.address,
+                      style: const TextStyle(color: TPColors.grayscale700),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  if (s.distance != null)
+                    Text(
+                      s.distance! < 1000
+                          ? '距離：${s.distance!.toStringAsFixed(0)} 公尺'
+                          : '距離：${(s.distance! / 1000).toStringAsFixed(2)} 公里',
+                      style: const TextStyle(
+                          color: TPColors.grayscale600, fontSize: 13),
+                    ),
+                ],
               ),
-              trailing:
-                  const Icon(Icons.chevron_right, color: TPColors.grayscale400),
+              trailing: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    '${s.currentPeople}/${s.capacity}',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: TPColors.grayscale900,
+                    ),
+                  ),
+                ],
+              ),
             ),
           );
         },
