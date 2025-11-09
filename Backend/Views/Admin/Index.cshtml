@@ -31,58 +31,6 @@
 </div>
 
 <div class="row">
-    <div class="col-md-6 mb-4">
-        <div class="card">
-            <div class="card-header bg-secondary text-white">
-                <h5 class="mb-0"><i class="bi bi-info-circle"></i> 快速資訊</h5>
-            </div>
-            <div class="card-body">
-                <dl class="row mb-0">
-                    <dt class="col-sm-6">記憶體快取時間:</dt>
-                    <dd class="col-sm-6">5 分鐘</dd>
-
-                    <dt class="col-sm-6">資料庫引擎:</dt>
-                    <dd class="col-sm-6">SQLite</dd>
-
-                    <dt class="col-sm-6">資料庫檔案:</dt>
-                    <dd class="col-sm-6"><code>shelters.db</code></dd>
-
-                    <dt class="col-sm-6">API 端點:</dt>
-                    <dd class="col-sm-6"><code>/api/Admin/*</code></dd>
-                </dl>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-md-6 mb-4">
-        <div class="card">
-            <div class="card-header bg-secondary text-white">
-                <h5 class="mb-0"><i class="bi bi-tools"></i> 快速操作</h5>
-            </div>
-            <div class="card-body">
-                <div class="d-grid gap-2">
-                    <a href="/Admin/TriggerDisaster" class="btn btn-danger">
-                        <i class="bi bi-exclamation-triangle-fill"></i> 觸發災害事件
-                    </a>
-                    <button class="btn btn-outline-primary" onclick="checkHealth()">
-                        <i class="bi bi-heart-pulse"></i> 檢查健康狀態
-                    </button>
-                    <button class="btn btn-outline-success" onclick="refreshCache()">
-                        <i class="bi bi-arrow-clockwise"></i> 立即刷新快取
-                    </button>
-                    <button class="btn btn-outline-danger" onclick="clearCache()">
-                        <i class="bi bi-trash"></i> 清除所有快取
-                    </button>
-                    <a href="/api/Shelter/all" class="btn btn-outline-info" target="_blank">
-                        <i class="bi bi-database"></i> 查看避難所資料
-                    </a>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<div class="row">
     <div class="col-12">
         <div class="alert alert-info" role="alert">
             <h5 class="alert-heading"><i class="bi bi-lightbulb"></i> 使用提示</h5>
